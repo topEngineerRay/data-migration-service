@@ -16,7 +16,7 @@ spring.datasource.password= pwd
 
 Step3:
 change the code in the Class BatchConfiguration.java, update the method:JdbcPagingItemReader
-update the tenant in this line: provider.setWhereClause("where tenant_id='ray4'"); to provider.setWhereClause("where tenant_id='yourtenant'");
+update the tenant in this line: provider.setWhereClause("where tenant_id='ray'"); to provider.setWhereClause("where tenant_id='yourtenant'");
 
 Step4:
 As we already have the hdideployer in kfp test space, just run DataMigration.java as how to run other spring boot application
