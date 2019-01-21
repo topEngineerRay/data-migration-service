@@ -1,7 +1,7 @@
 # Description
-The target of this service:provide api to read data from postgresql and insert into hanaDB
+The target of this service is to provide apis to read data from postgresql and insert into hanaDB
 
-# How to run current POC on local
+# How to run this current POC on local
 
 Step1:
 Add VCAP_SERVICES to specify the managed-hana information as the run arguments
