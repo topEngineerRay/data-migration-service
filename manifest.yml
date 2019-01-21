@@ -1,0 +1,9 @@
+---
+applications:
+- name: datamigration-business-partner
+  memory: 1G
+  instances: 1
+  path: target/datamigration-service-1.0-SNAPSHOT.jar
+  services:
+    - postgresql-business-partner
+    - managed-hana-business-partner
