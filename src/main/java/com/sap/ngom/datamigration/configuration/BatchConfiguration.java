@@ -95,7 +95,7 @@ public class BatchConfiguration {
         provider.setDataSource(dataSource);
         provider.setSelectClause("select *");
         provider.setFromClause("from bp");
-        provider.setWhereClause("where tenant_id='ray4'");
+        provider.setWhereClause("where tenant_id='ray'");
         provider.setSortKey("bpid");
         try {
             itemReader.setQueryProvider(provider.getObject());

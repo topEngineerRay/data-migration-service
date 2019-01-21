@@ -33,7 +33,7 @@ public class DataMigrationService {
     JobExecution objectreplicationstatusMigrationJobExecution = null;
 
 
-    public void triggerBpMigration() {
+    public void triggerBpMigration(String serviceName) {
         //run all job
         try {
             Job bpMigrationjob = jobRegistry.getJob("bpMigrationJob");
@@ -66,7 +66,7 @@ public class DataMigrationService {
 
     }
 
-    public void triggerOneMigrationJob(String jobName) {
+    public void triggerOneMigrationJob(String serviceName, String jobName) {
         Job job = null;
 
         try {
@@ -93,7 +93,7 @@ public class DataMigrationService {
         return new JobParametersBuilder().addDate("date", new Date()).toJobParameters();
     }
 
-    public List<BatchStatus> getAllJobsStatus() {
+    public List<BatchStatus> getAllJobsStatus(String serviceName) {
         List<BatchStatus> statusList = new ArrayList<>();
         if(null!=bpMigrationjobExecution)
         statusList.add(bpMigrationjobExecution.getStatus());
