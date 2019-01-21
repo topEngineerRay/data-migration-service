@@ -23,7 +23,7 @@ As we already have the hdideployer in kfp test space, just run DataMigration.jav
 
 Step5:
 trigger migration job by api, in this poc, we can trigger migration for bp table with the below url in postman
-{{url}}/v1/bpMigration/migrationOneJob/bpMigrationJob
+{{url}}/v1/migrationOneJob/bpservice/bpMigrationJob
 
 Step6:
 Go to hana db to manually verify the results.

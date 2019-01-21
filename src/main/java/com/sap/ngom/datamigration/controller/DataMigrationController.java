@@ -12,32 +12,34 @@ import org.springframework.web.bind.annotation.RequestParam;
 
 import java.util.List;
 
-@RequestMapping(value = "/v1/bpMigration")
+@RequestMapping(value = "/v1")
 @Controller
 public class DataMigrationController {
 
     @Autowired DataMigrationService dataMigrationService;
 
     //get job status
-    @GetMapping("/allJobStatus")
-    public List<BatchStatus> getJobStatus() {
-       return dataMigrationService.getAllJobsStatus();
+    @GetMapping("/{serviceName}/allJobStatus")
+    public List<BatchStatus> getJobStatus(@PathVariable("serviceName")final String serviceName) {
+       return dataMigrationService.getAllJobsStatus(serviceName);
     }
 
     //get job status
-    @GetMapping("/allJobStatus/{migrationJobName}")
-    public JobResult getJobStatus(@PathVariable("migrationJobName")final String jobName) {
+    @GetMapping("/allJobStatus/{serviceName}/{migrationJobName}")
+    public JobResult getJobStatus(@PathVariable("serviceName")final String serviceName,
+                                  @PathVariable("migrationJobName")final String jobName) {
         return dataMigrationService.getJobsStatus(jobName);
     }
 
-    @GetMapping("/tiggerAllJob")
-    public void triggerBpMigration() {
-        dataMigrationService.triggerBpMigration();
+    @GetMapping("/tiggerAllJob/{serviceName}")
+    public void triggerBpMigration(@PathVariable("serviceName")final String serviceName) {
+        dataMigrationService.triggerBpMigration(serviceName);
     }
 
-    @GetMapping("/migrationOneJob/{migrationJobName}")
-    public void migrationJobRetry(@PathVariable("migrationJobName")final String jobName) {
-        dataMigrationService.triggerOneMigrationJob(jobName);
+    @GetMapping("/migrationOneJob/{serviceName}/{migrationJobName}")
+    public void migrationJobRetry(@PathVariable("serviceName")final String serviceName,
+                                  @PathVariable("migrationJobName")final String jobName) {
+        dataMigrationService.triggerOneMigrationJob(serviceName,jobName);
     }
 
     @GetMapping("/migrateSingleRecord")
