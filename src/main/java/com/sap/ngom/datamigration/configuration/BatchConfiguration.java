@@ -24,6 +24,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.jdbc.core.ColumnMapRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
@@ -61,6 +62,10 @@ public class BatchConfiguration {
         return new JdbcTemplate(detinationDataSource);
     }
 
+    @Bean
+    public DataSourceTransactionManager dataSourceTransactionManager() {
+        return new DataSourceTransactionManager(detinationDataSource);
+    }
 
 
     // job
@@ -75,9 +80,9 @@ public class BatchConfiguration {
 
     //step
     @Bean
-    public Step bpTableMigrationStep(PlatformTransactionManager transactionManager) {
+    public Step bpTableMigrationStep() {
         return stepBuilderFactory.get("BPTableMigrationStep")
-                .transactionManager(transactionManager)
+                .transactionManager(dataSourceTransactionManager())
                 .<Map<String,Object>,Map<String,Object>>chunk(10)
                 .reader(BPItemReaderPaging(dataSource)).faultTolerant().noSkip(Exception.class).skipLimit(SKIP_LIMIT)
                 .processor(BPprocessor())
