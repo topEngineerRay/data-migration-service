@@ -16,6 +16,11 @@ public class JobCompletionNotificationListener extends JobExecutionListenerSuppo
 
     private final JdbcTemplate jdbcTemplate;
 
+    @Override
+    public void beforeJob(JobExecution jobExecution) {
+        super.beforeJob(jobExecution);
+    }
+
     @Autowired
     public JobCompletionNotificationListener(JdbcTemplate jdbcTemplate) {
         this.jdbcTemplate = jdbcTemplate;

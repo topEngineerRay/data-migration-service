@@ -45,6 +45,12 @@
             <artifactId>util-headers</artifactId>
             <version>1.0-20180910-120404-29d9d4bdaba9be5db353ffbbfbdc4058b9a8c2d1</version>
         </dependency>
+
+        <dependency>
+            <groupId>com.sap.ngom</groupId>
+            <artifactId>util-hana-db</artifactId>
+            <version>1.0.0-20190121-095110-670ae14f289661b83435263f553aa0c26eed9f4d</version>
+        </dependency>
         <!-- HANA database implementations -->
         <dependency>
             <groupId>com.sap.db.jdbc</groupId>

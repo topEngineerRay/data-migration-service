@@ -1,5 +1,7 @@
 package com.sap.ngom.datamigration.configuration;
 
+import com.sap.ngom.datamigration.configuration.hanaDBConfiguration.TenantSpecificHANAMultitRoutingDataSource;
+import com.sap.ngom.datamigration.listener.BPStepListener;
 import com.sap.ngom.datamigration.listener.JobCompletionNotificationListener;
 import com.sap.ngom.datamigration.mapper.RowMapper.MapItemSqlParameterSourceProvider;
 import com.sap.ngom.datamigration.processor.BPItemProcessor;
@@ -40,7 +42,7 @@ public class BatchConfiguration {
     private DataSource dataSource;
 
     @Autowired
-    @Qualifier("routingDataSource")
+    @Qualifier("MTRoutingDataSource")
     DataSource detinationDataSource;
 
     public JobBuilderFactory jobBuilderFactory;
@@ -81,12 +83,15 @@ public class BatchConfiguration {
     //step
     @Bean
     public Step bpTableMigrationStep() {
+        TenantSpecificHANAMultitRoutingDataSource.put("BPTableMigrationStep","revcdevkp");
         return stepBuilderFactory.get("BPTableMigrationStep")
-                .transactionManager(dataSourceTransactionManager())
-                .<Map<String,Object>,Map<String,Object>>chunk(10)
+                .transactionManager(dataSourceTransactionManager)
+                .listener(new BPStepListener())
+                .<Map<String,Object>,Map<String,Object>>chunk(2)
                 .reader(BPItemReaderPaging(dataSource)).faultTolerant().noSkip(Exception.class).skipLimit(SKIP_LIMIT)
                 .processor(BPprocessor())
                 .writer(BPItemwriter(detinationDataSource)).faultTolerant().noSkip(Exception.class).skipLimit(10)
+
                 .build();
     }
 
@@ -97,10 +102,11 @@ public class BatchConfiguration {
         JdbcPagingItemReader<Map<String, Object>>  itemReader = new JdbcPagingItemReader<>();
 
         SqlPagingQueryProviderFactoryBean provider = new SqlPagingQueryProviderFactoryBean();
+
         provider.setDataSource(dataSource);
         provider.setSelectClause("select *");
         provider.setFromClause("from bp");
-        provider.setWhereClause("where tenant_id='ray'");
+        provider.setWhereClause("where tenant_id='revcdevkp'");
         provider.setSortKey("bpid");
         try {
             itemReader.setQueryProvider(provider.getObject());
