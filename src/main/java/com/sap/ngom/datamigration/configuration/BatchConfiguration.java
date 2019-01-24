@@ -87,7 +87,7 @@ public class BatchConfiguration {
         return stepBuilderFactory.get("BPTableMigrationStep")
                 .transactionManager(dataSourceTransactionManager())
                 .listener(new BPStepListener())
-                .<Map<String,Object>,Map<String,Object>>chunk(2)
+                .<Map<String,Object>,Map<String,Object>>chunk(10)
                 .reader(BPItemReaderPaging(dataSource)).faultTolerant().noSkip(Exception.class).skipLimit(SKIP_LIMIT)
                 .processor(BPprocessor())
                 .writer(BPItemwriter(detinationDataSource)).faultTolerant().noSkip(Exception.class).skipLimit(10)
