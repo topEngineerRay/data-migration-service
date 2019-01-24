@@ -85,7 +85,7 @@ public class BatchConfiguration {
     public Step bpTableMigrationStep() {
         TenantSpecificHANAMultitRoutingDataSource.put("BPTableMigrationStep","revcdevkp");
         return stepBuilderFactory.get("BPTableMigrationStep")
-                .transactionManager(dataSourceTransactionManager)
+                .transactionManager(dataSourceTransactionManager())
                 .listener(new BPStepListener())
                 .<Map<String,Object>,Map<String,Object>>chunk(2)
                 .reader(BPItemReaderPaging(dataSource)).faultTolerant().noSkip(Exception.class).skipLimit(SKIP_LIMIT)
