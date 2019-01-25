@@ -10,7 +10,6 @@ import java.util.Map;
 
 public class TenantSpecificHANAMultitRoutingDataSource extends HANAMultiTenantRoutingDataSource {
 
-    private static Map<String,String> tenants = new HashMap<>();
     private static ThreadLocal<String> CONTEXT
             = new ThreadLocal<>();
 
@@ -18,14 +17,6 @@ public class TenantSpecificHANAMultitRoutingDataSource extends HANAMultiTenantRo
                                               MultiTenantDataSourceHolder multiTenantDataSourceHolder,
                                               NgomHeaderFacade ngomHeaderFacade){
         super(hdiDeployerClient,multiTenantDataSourceHolder,ngomHeaderFacade);
-    }
-
-    public static void put(String stepName,String tenantID){
-        tenants.put(stepName,tenantID);
-    }
-
-    public static String getTenant(String stepName){
-        return tenants.get(stepName);
     }
 
     public static void setTenant(String tenantId){
