@@ -1,14 +1,13 @@
 package com.sap.ngom.datamigration.controller;
 
 import com.sap.ngom.datamigration.model.JobResult;
+import com.sap.ngom.datamigration.service.DataCleanupService;
 import com.sap.ngom.datamigration.service.DataMigrationService;
 import org.springframework.batch.core.BatchStatus;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -17,6 +16,9 @@ import java.util.List;
 public class DataMigrationController {
 
     @Autowired DataMigrationService dataMigrationService;
+
+    @Autowired
+    DataCleanupService dataCleanupService;
 
     //get job status
     @GetMapping("/{serviceName}/allJobStatus")
@@ -45,5 +47,16 @@ public class DataMigrationController {
     @GetMapping("/migrateSingleRecord")
     public void migrationFailedRecordRetry(@RequestParam final String tableName, @RequestParam final String PKID) {
         dataMigrationService.migrationFailedRecordRetry(tableName, PKID);
+    }
+
+    @PostMapping("/migration/{tableName}")
+    public void test(@PathVariable final String tableName) {
+        dataMigrationService.migrationForData(tableName);
+    }
+
+    @PostMapping("/data/cleanup/{tableName}")
+    public ResponseEntity<Void> dataCleanup4OneTable(@PathVariable final String tableName) {
+        dataCleanupService.cleanData4OneTable(tableName);
+        return ResponseEntity.ok().build();
     }
 }
