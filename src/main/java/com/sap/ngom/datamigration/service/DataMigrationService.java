@@ -114,27 +114,28 @@ public class DataMigrationService {
         try {
             List<Step> stepList = new ArrayList<Step>();
             List<String> tenants = getAllTenants(tableName);
-
-            Step step = null;
-            //notice: For test purpose we'd better not migarate all tenants,
-            // or else there would be a lot of tenants,below code only migrate two tenants
-            for (int i = 0; i < 2; i++) {
-                step = createOneStep(tenants.get(i), tableName);
-                stepList.add(step);
-            }
-            //below code will migrate all tenants
+            if(!tenants.isEmpty()) {
+                Step step = null;
+                //notice: For test purpose we'd better not migarate all tenants,
+                // or else there would be a lot of tenants,below code only migrate two tenants
+                for (int i = 0; i < 2; i++) {
+                    step = createOneStep(tenants.get(i), tableName);
+                    stepList.add(step);
+                }
+                //below code will migrate all tenants
             /*  for (String tenant : tenants) {
                 step = createOneStep(tenant);
                 stepList.add(step);
             }*/
 
-            SimpleJob migrationJob = (SimpleJob) jobBuilderFactory.get(tableName + "_" + "MigrationJobDynamic")
-                    .incrementer(new RunIdIncrementer())
-                    .listener(jobCompletionNotificationListener).start(createFakeStep())
-                    .build();
+                SimpleJob migrationJob = (SimpleJob) jobBuilderFactory.get(tableName + "_" + "MigrationJobDynamic")
+                        .incrementer(new RunIdIncrementer())
+                        .listener(jobCompletionNotificationListener).start(stepList.get(0))
+                        .build();
 
-            migrationJob.setSteps(stepList);
-            jobLauncher.run(migrationJob, generateJobParams());
+                migrationJob.setSteps(stepList);
+                jobLauncher.run(migrationJob, generateJobParams());
+            }
 
         } catch (JobExecutionAlreadyRunningException e) {
             e.printStackTrace();
@@ -145,27 +146,6 @@ public class DataMigrationService {
         } catch (JobParametersInvalidException e) {
             e.printStackTrace();
         }
-    }
-
-    private Step createFakeStep() {
-        Step fakeStep = new Step() {
-            @Override public String getName() {
-                return null;
-            }
-
-            @Override public boolean isAllowStartIfComplete() {
-                return false;
-            }
-
-            @Override public int getStartLimit() {
-                return 0;
-            }
-
-            @Override public void execute(StepExecution stepExecution) throws JobInterruptedException {
-
-            }
-        };
-        return fakeStep;
     }
 
     private Step createOneStep(String tenant, String table) {
