@@ -128,7 +128,7 @@ public class DataMigrationService {
                 stepList.add(step);
             }*/
 
-            SimpleJob migrationJob = (SimpleJob) jobBuilderFactory.get(tableName + "MigrationJobDynamic")
+            SimpleJob migrationJob = (SimpleJob) jobBuilderFactory.get(tableName + "_" + "MigrationJobDynamic")
                     .incrementer(new RunIdIncrementer())
                     .listener(jobCompletionNotificationListener).start(createFakeStep())
                     .build();
@@ -170,7 +170,7 @@ public class DataMigrationService {
 
     private Step createOneStep(String tenant, String table) {
         //not skip any exceptions now
-        Step tenantSpecificStep = stepBuilderFactory.get(tenant)
+        Step tenantSpecificStep = stepBuilderFactory.get(table + "_" + tenant + "_" + "MigrationStepDynamic")
                 .listener(new BPStepListener(tenant))
                 .<Map<String, Object>, Map<String, Object>>chunk(10).faultTolerant().noSkip(Exception.class).skipLimit(SKIP_LIMIT)
                 .reader(itemReader(dataSource, tenant))
