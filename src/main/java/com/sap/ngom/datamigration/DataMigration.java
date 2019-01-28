@@ -4,8 +4,8 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 
 @SpringBootApplication
-public class Datamigration {
+public class DataMigration {
     public static void main(String[] args) throws Exception {
-        SpringApplication.run(Datamigration.class, args);
+        SpringApplication.run(DataMigration.class, args);
     }
 }

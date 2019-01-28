@@ -1,12 +1,9 @@
-package com.sap.ngom.datamigration.configuration.hanaDBConfiguration;
+package com.sap.ngom.datamigration.configuration.hana;
 
 import com.sap.ngom.util.hana.db.configuration.HANAMultiTenantRoutingDataSource;
 import com.sap.ngom.util.hana.db.configuration.MultiTenantDataSourceHolder;
 import com.sap.ngom.util.hana.db.utils.HDIDeployerClient;
 import com.sap.ngom.util.headers.NgomHeaderFacade;
-
-import java.util.HashMap;
-import java.util.Map;
 
 public class TenantSpecificHANAMultitRoutingDataSource extends HANAMultiTenantRoutingDataSource {
 

@@ -41,7 +41,7 @@ public class DataMigrationController {
     @GetMapping("/migrationOneJob/{serviceName}/{migrationJobName}")
     public void migrationJobRetry(@PathVariable("serviceName")final String serviceName,
                                   @PathVariable("migrationJobName")final String jobName) {
-        dataMigrationService.triggerOneMigrationJob(serviceName,jobName);
+        dataMigrationService.triggerOneMigrationJob(jobName);
     }
 
     @GetMapping("/migrateSingleRecord")

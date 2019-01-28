@@ -1,4 +1,4 @@
-package com.sap.ngom.datamigration.configuration.hanaDBConfiguration;
+package com.sap.ngom.datamigration.configuration.hana;
 
 import com.sap.ngom.util.hana.db.configuration.MultiTenantDataSourceHolder;
 import com.sap.ngom.util.hana.db.utils.HDIDeployerClient;

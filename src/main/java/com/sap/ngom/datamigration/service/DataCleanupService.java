@@ -1,12 +1,13 @@
 package com.sap.ngom.datamigration.service;
 
+import com.sap.ngom.datamigration.util.DataMigrationServiceUtil;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Service;
-import com.sap.ngom.datamigration.configuration.hanaDBConfiguration.TenantSpecificHANAMultitRoutingDataSource;
+import com.sap.ngom.datamigration.configuration.hana.TenantSpecificHANAMultitRoutingDataSource;
 
 import javax.sql.DataSource;
 import java.sql.ResultSet;
@@ -27,19 +28,23 @@ public class DataCleanupService {
     @Qualifier("MTRoutingDataSource")
     private DataSource destinationDataSource;
 
+    @Autowired
+    DataMigrationServiceUtil dataMigrationServiceUtil;
+
     private String targetNamespace = "com.sap.ngom.db::BusinessPartner.";
     private static final Integer THREADS_NUMBERS = 5;
 
     public void cleanData4OneTable(String tableName) {
         JdbcTemplate jdbcTemplate = new JdbcTemplate(sourceDataSource);
-        List<String> tenantList = jdbcTemplate.query("select tenant_id from " + tableName + " group by tenant_id", new RowMapper<String>() {
-            @Override
-            public String mapRow(ResultSet resultSet, int i) throws SQLException {
-                System.out.println("i: " + i);
-                return resultSet.getString("tenant_id");
-            }
-        });
+//        List<String> tenantList = jdbcTemplate.query("select tenant_id from " + tableName + " group by tenant_id", new RowMapper<String>() {
+//            @Override
+//            public String mapRow(ResultSet resultSet, int i) throws SQLException {
+//                System.out.println("i: " + i);
+//                return resultSet.getString("tenant_id");
+//            }
+//        });
 
+        List<String> tenantList = dataMigrationServiceUtil.getAllTenants(tableName, sourceDataSource);
         ExecutorService executorService = Executors.newFixedThreadPool(THREADS_NUMBERS);
         CountDownLatch tenantLatch = new CountDownLatch(tenantList.size());
 
