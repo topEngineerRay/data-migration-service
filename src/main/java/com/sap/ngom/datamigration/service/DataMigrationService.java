@@ -59,9 +59,6 @@ public class DataMigrationService {
     DataSource detinationDataSource;
 
     @Autowired
-    ApplicationContext applicationContext;
-
-    @Autowired
     public JobBuilderFactory jobBuilderFactory;
 
     @Autowired
@@ -71,13 +68,12 @@ public class DataMigrationService {
     JobCompletionNotificationListener jobCompletionNotificationListener;
 
     JobExecution bpMigrationjobExecution = null;
-    JobExecution addressMigrationJobExecution =  null;
+    JobExecution addressMigrationJobExecution = null;
     JobExecution bprelationshipMigrationJobExecution = null;
     JobExecution customreferenceMigrationJobExecution = null;
     JobExecution externalinfoMigrationJobExecution = null;
     JobExecution marketMigrationJobExecution = null;
     JobExecution objectreplicationstatusMigrationJobExecution = null;
-
 
     public void triggerBpMigration(String serviceName) {
         //run all job
@@ -90,13 +86,14 @@ public class DataMigrationService {
             Job marketMigrationJob = jobRegistry.getJob("marketMigrationJob");
             Job objectreplicationstatusMigrationJob = jobRegistry.getJob("objectreplicationstatusMigrationJob");
 
-            bpMigrationjobExecution =  jobLauncher.run(bpMigrationjob, generateJobParams());
-            addressMigrationJobExecution =  jobLauncher.run(addressMigrationJob, generateJobParams());
+            bpMigrationjobExecution = jobLauncher.run(bpMigrationjob, generateJobParams());
+            addressMigrationJobExecution = jobLauncher.run(addressMigrationJob, generateJobParams());
             bprelationshipMigrationJobExecution = jobLauncher.run(bprelationshipMigrationJob, generateJobParams());
             customreferenceMigrationJobExecution = jobLauncher.run(customreferenceMigrationJob, generateJobParams());
             externalinfoMigrationJobExecution = jobLauncher.run(externalinfoMigrationJob, generateJobParams());
             marketMigrationJobExecution = jobLauncher.run(marketMigrationJob, generateJobParams());
-            objectreplicationstatusMigrationJobExecution = jobLauncher.run(objectreplicationstatusMigrationJob, generateJobParams());
+            objectreplicationstatusMigrationJobExecution = jobLauncher
+                    .run(objectreplicationstatusMigrationJob, generateJobParams());
 
         } catch (NoSuchJobException e) {
             e.printStackTrace();
@@ -112,8 +109,7 @@ public class DataMigrationService {
 
     }
 
-
-    public void triggerOneMigrationJob(String serviceName, String tableName)  {
+    public void triggerOneMigrationJob(String serviceName, String tableName) {
         //we have two different type of jobs: FlowJob and SimpleJob
         try {
             List<Step> stepList = new ArrayList<Step>();
@@ -122,37 +118,19 @@ public class DataMigrationService {
             Step step = null;
             //notice: For test purpose we'd better not migarate all tenants,
             // or else there would be a lot of tenants,below code only migrate two tenants
-            for(int i = 0; i< 2;i++){
-                System.out.println(tenants.get(i));
-                step = createOneStep(tenants.get(i),tableName);
+            for (int i = 0; i < 2; i++) {
+                step = createOneStep(tenants.get(i), tableName);
                 stepList.add(step);
             }
             //below code will migrate all tenants
             /*  for (String tenant : tenants) {
-                System.out.println(tenant);
                 step = createOneStep(tenant);
                 stepList.add(step);
             }*/
 
-            SimpleJob migrationJob = (SimpleJob) jobBuilderFactory.get(tableName+"MigrationJobDynamic")
+            SimpleJob migrationJob = (SimpleJob) jobBuilderFactory.get(tableName + "MigrationJobDynamic")
                     .incrementer(new RunIdIncrementer())
-                    .listener(jobCompletionNotificationListener).start(new Step() {
-                        @Override public String getName() {
-                            return null;
-                        }
-
-                        @Override public boolean isAllowStartIfComplete() {
-                            return false;
-                        }
-
-                        @Override public int getStartLimit() {
-                            return 0;
-                        }
-
-                        @Override public void execute(StepExecution stepExecution) throws JobInterruptedException {
-
-                        }
-                    })
+                    .listener(jobCompletionNotificationListener).start(createFakeStep())
                     .build();
 
             migrationJob.setSteps(stepList);
@@ -169,14 +147,35 @@ public class DataMigrationService {
         }
     }
 
-    public Step createOneStep(String tenant,String table){
-        //build your step
+    private Step createFakeStep() {
+        Step fakeStep = new Step() {
+            @Override public String getName() {
+                return null;
+            }
+
+            @Override public boolean isAllowStartIfComplete() {
+                return false;
+            }
+
+            @Override public int getStartLimit() {
+                return 0;
+            }
+
+            @Override public void execute(StepExecution stepExecution) throws JobInterruptedException {
+
+            }
+        };
+        return fakeStep;
+    }
+
+    private Step createOneStep(String tenant, String table) {
+        //not skip any exceptions now
         Step tenantSpecificStep = stepBuilderFactory.get(tenant)
                 .listener(new BPStepListener(tenant))
-                .<Map<String,Object>,Map<String,Object>>chunk(10)
-                .reader(itemReader(dataSource,tenant))
+                .<Map<String, Object>, Map<String, Object>>chunk(10).faultTolerant().noSkip(Exception.class).skipLimit(SKIP_LIMIT)
+                .reader(itemReader(dataSource, tenant))
                 .processor(new BPItemProcessor())
-                .writer(myItemwriter(detinationDataSource,table))
+                .writer(myItemwriter(detinationDataSource, table)).faultTolerant().noSkip(Exception.class).skipLimit(SKIP_LIMIT)
                 .build();
 
         return tenantSpecificStep;
@@ -184,12 +183,12 @@ public class DataMigrationService {
 
     public List<String> getAllTenants(String tableName) {
         JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
-        String sql ="select distinct tenant_id from "+tableName;
-        List<String> allTenantsList=jdbcTemplate.queryForList(sql,String.class);
+        String sql = "select distinct tenant_id from " + tableName;
+        List<String> allTenantsList = jdbcTemplate.queryForList(sql, String.class);
         return allTenantsList;
     }
 
-    public JdbcCursorItemReader<Map<String, Object>> itemReader(final DataSource dataSource,String tenant){
+    public JdbcCursorItemReader<Map<String, Object>> itemReader(final DataSource dataSource, String tenant) {
         //get bp table data from postgresql
         JdbcCursorItemReader<Map<String, Object>> itemReader = new JdbcCursorItemReader<>();
         itemReader.setDataSource(dataSource);
@@ -198,11 +197,10 @@ public class DataMigrationService {
         return itemReader;
     }
 
-
-    public ItemWriter<Map<String,Object>> myItemwriter(final DataSource dataSource,final  String tableName) {
+    public ItemWriter<Map<String, Object>> myItemwriter(final DataSource dataSource, final String tableName) {
 
         // insert into hana
-        MyItemWriter myItemWriter = new MyItemWriter(dataSource,tableName);
+        MyItemWriter myItemWriter = new MyItemWriter(dataSource, tableName);
         return myItemWriter;
     }
 
@@ -216,32 +214,32 @@ public class DataMigrationService {
 
     public List<BatchStatus> getAllJobsStatus(String serviceName) {
         List<BatchStatus> statusList = new ArrayList<>();
-        if(null!=bpMigrationjobExecution)
-        statusList.add(bpMigrationjobExecution.getStatus());
+        if (null != bpMigrationjobExecution)
+            statusList.add(bpMigrationjobExecution.getStatus());
 
-        if(null!=addressMigrationJobExecution)
-        statusList.add(addressMigrationJobExecution.getStatus());
+        if (null != addressMigrationJobExecution)
+            statusList.add(addressMigrationJobExecution.getStatus());
 
-        if(null!=bprelationshipMigrationJobExecution)
-        statusList.add(bprelationshipMigrationJobExecution.getStatus());
+        if (null != bprelationshipMigrationJobExecution)
+            statusList.add(bprelationshipMigrationJobExecution.getStatus());
 
-        if(null!=customreferenceMigrationJobExecution)
-        statusList.add(customreferenceMigrationJobExecution.getStatus());
+        if (null != customreferenceMigrationJobExecution)
+            statusList.add(customreferenceMigrationJobExecution.getStatus());
 
-        if(null!=externalinfoMigrationJobExecution)
-        statusList.add(externalinfoMigrationJobExecution.getStatus());
+        if (null != externalinfoMigrationJobExecution)
+            statusList.add(externalinfoMigrationJobExecution.getStatus());
 
-        if(null!=marketMigrationJobExecution)
-        statusList.add(marketMigrationJobExecution.getStatus());
+        if (null != marketMigrationJobExecution)
+            statusList.add(marketMigrationJobExecution.getStatus());
 
-        if(null!=objectreplicationstatusMigrationJobExecution)
-        statusList.add(objectreplicationstatusMigrationJobExecution.getStatus());
+        if (null != objectreplicationstatusMigrationJobExecution)
+            statusList.add(objectreplicationstatusMigrationJobExecution.getStatus());
 
         return statusList;
     }
 
     public JobResult getJobsStatus(String jobName) {
 
-      return null;
+        return null;
     }
 }
