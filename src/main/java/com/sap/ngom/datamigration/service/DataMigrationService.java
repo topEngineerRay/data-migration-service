@@ -109,7 +109,7 @@ public class DataMigrationService {
 
     }
 
-    public void triggerOneMigrationJob(String serviceName, String tableName) {
+    public void triggerOneMigrationJob( String tableName) {
         //we have two different type of jobs: FlowJob and SimpleJob
         try {
             List<Step> stepList = new ArrayList<Step>();
