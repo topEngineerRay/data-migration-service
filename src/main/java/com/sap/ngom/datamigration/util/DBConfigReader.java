@@ -1,6 +1,6 @@
 package com.sap.ngom.datamigration.util;
 
-import com.sap.ngom.datamigration.exception.DataMigrationProcessException;
+import com.sap.ngom.datamigration.exception.SourceTableNotDefinedException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -9,11 +9,12 @@ import java.util.Arrays;
 import java.util.List;
 
 @Component
-public class DataMigrationServiceUtil {
+public class DBConfigReader {
 
-    @Value("${migration.table.target.nameSpace}")
+    @Value("${data.migration.db.source.tables}")
     private String targetTableNameSpace;
-    @Value("${migration.table.source.names}")
+
+    @Value("${data.migration.db.target.namespace}")
     private String[] sourceTableNames;
 
     private List<String> sourceTableNamesList;
@@ -29,12 +30,12 @@ public class DataMigrationServiceUtil {
 
     public String getTargetTableName (String sourceTableName){
         if(!sourceTableNamesList.contains(sourceTableName)){
-            throw new DataMigrationProcessException("The given source table name (" + sourceTableName + ") is not defined in properties.");
+            throw new SourceTableNotDefinedException("The given source table name (" + sourceTableName + ") is not defined in properties.");
         }
-        return isNameSpaceUsed() ? targetTableNameSpace + "." + sourceTableName : sourceTableName;
+        return isNameSpaceSpecified() ? targetTableNameSpace + "." + sourceTableName : sourceTableName;
     }
 
-    private boolean isNameSpaceUsed () {
+    private boolean isNameSpaceSpecified() {
         return targetTableNameSpace != null && !targetTableNameSpace.isEmpty();
     }
 

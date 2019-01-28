@@ -1,6 +1,6 @@
 package com.sap.ngom.datamigration.util;
 
-import com.sap.ngom.datamigration.exception.DataMigrationProcessException;
+import com.sap.ngom.datamigration.exception.SourceTableNotDefinedException;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
@@ -11,10 +11,10 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.util.Arrays;
 import java.util.List;
 
-public class DataMigrationServiceUtilTest {
+public class DBConfigReaderTest {
 
     @InjectMocks
-    private DataMigrationServiceUtil dataMigrationServiceUtil;
+    private DBConfigReader dataMigrationServiceUtil;
 
     String[] sourceTableNames = {"bp","address"};
     List<String> sourceTableNamesList = Arrays.asList(sourceTableNames);
@@ -63,7 +63,7 @@ public class DataMigrationServiceUtilTest {
         Assert.assertEquals("bp",dataMigrationServiceUtil.getTargetTableName("bp"));
     }
 
-    @Test(expected = DataMigrationProcessException.class)
+    @Test(expected = SourceTableNotDefinedException.class)
     public void testGetTargetTableNameWithInvalidSourceTable(){
         String nameSpace = "";
         ReflectionTestUtils.setField(dataMigrationServiceUtil, "targetTableNameSpace", nameSpace);
