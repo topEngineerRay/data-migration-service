@@ -1,19 +1,43 @@
 package com.sap.ngom.datamigration.service;
 
+import com.sap.ngom.datamigration.configuration.MyItemWriter;
+import com.sap.ngom.datamigration.listener.BPStepListener;
+import com.sap.ngom.datamigration.listener.JobCompletionNotificationListener;
+import com.sap.ngom.datamigration.mapper.RowMapper.MapItemSqlParameterSourceProvider;
 import com.sap.ngom.datamigration.model.JobResult;
+import com.sap.ngom.datamigration.processor.BPItemProcessor;
+import com.sap.ngom.datamigration.util.DataMigrationServiceUtil;
 import org.springframework.batch.core.*;
 import org.springframework.batch.core.configuration.JobRegistry;
+import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
+import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
+import org.springframework.batch.core.job.SimpleJob;
 import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.batch.core.launch.NoSuchJobException;
+import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.core.repository.JobExecutionAlreadyRunningException;
 import org.springframework.batch.core.repository.JobInstanceAlreadyCompleteException;
 import org.springframework.batch.core.repository.JobRestartException;
+import org.springframework.batch.item.ItemReader;
+import org.springframework.batch.item.ItemWriter;
+import org.springframework.batch.item.database.JdbcCursorItemReader;
+import org.springframework.batch.item.database.JdbcPagingItemReader;
+import org.springframework.batch.item.database.builder.JdbcBatchItemWriterBuilder;
+import org.springframework.batch.item.database.support.SqlPagingQueryProviderFactoryBean;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.ConfigurableApplicationContext;
+import org.springframework.jdbc.core.ColumnMapRowMapper;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
+import javax.sql.DataSource;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 
 @Service
 public class DataMigrationService {
@@ -23,6 +47,28 @@ public class DataMigrationService {
 
     @Autowired
     JobRegistry jobRegistry;
+
+    private static final int SKIP_LIMIT = 10;
+
+    @Autowired
+    @Qualifier("sourceDataSource")
+    private DataSource dataSource;
+
+    @Autowired
+    @Qualifier("MTRoutingDataSource")
+    DataSource detinationDataSource;
+
+    @Autowired
+    ApplicationContext applicationContext;
+
+    @Autowired
+    public JobBuilderFactory jobBuilderFactory;
+
+    @Autowired
+    public StepBuilderFactory stepBuilderFactory;
+
+    @Autowired
+    JobCompletionNotificationListener jobCompletionNotificationListener;
 
     JobExecution bpMigrationjobExecution = null;
     JobExecution addressMigrationJobExecution =  null;
@@ -66,14 +112,52 @@ public class DataMigrationService {
 
     }
 
-    public void triggerOneMigrationJob(String serviceName, String jobName) {
-        Job job = null;
 
+    public void triggerOneMigrationJob(String serviceName, String tableName)  {
+        //we have two different type of jobs: FlowJob and SimpleJob
         try {
-            job = jobRegistry.getJob(jobName);
-            jobLauncher.run(job, generateJobParams());
-        } catch (NoSuchJobException e) {
-            e.printStackTrace();
+            List<Step> stepList = new ArrayList<Step>();
+            List<String> tenants = getAllTenants(tableName);
+
+            Step step = null;
+            //notice: For test purpose we'd better not migarate all tenants,
+            // or else there would be a lot of tenants,below code only migrate two tenants
+            for(int i = 0; i< 2;i++){
+                System.out.println(tenants.get(i));
+                step = createOneStep(tenants.get(i),tableName);
+                stepList.add(step);
+            }
+            //below code will migrate all tenants
+            /*  for (String tenant : tenants) {
+                System.out.println(tenant);
+                step = createOneStep(tenant);
+                stepList.add(step);
+            }*/
+
+            SimpleJob migrationJob = (SimpleJob) jobBuilderFactory.get(tableName+"MigrationJobDynamic")
+                    .incrementer(new RunIdIncrementer())
+                    .listener(jobCompletionNotificationListener).start(new Step() {
+                        @Override public String getName() {
+                            return null;
+                        }
+
+                        @Override public boolean isAllowStartIfComplete() {
+                            return false;
+                        }
+
+                        @Override public int getStartLimit() {
+                            return 0;
+                        }
+
+                        @Override public void execute(StepExecution stepExecution) throws JobInterruptedException {
+
+                        }
+                    })
+                    .build();
+
+            migrationJob.setSteps(stepList);
+            jobLauncher.run(migrationJob, generateJobParams());
+
         } catch (JobExecutionAlreadyRunningException e) {
             e.printStackTrace();
         } catch (JobRestartException e) {
@@ -83,6 +167,43 @@ public class DataMigrationService {
         } catch (JobParametersInvalidException e) {
             e.printStackTrace();
         }
+    }
+
+    public Step createOneStep(String tenant,String table){
+        //build your step
+        Step tenantSpecificStep = stepBuilderFactory.get(tenant)
+                .listener(new BPStepListener(tenant))
+                .<Map<String,Object>,Map<String,Object>>chunk(10)
+                .reader(itemReader(dataSource,tenant))
+                .processor(new BPItemProcessor())
+                .writer(myItemwriter(detinationDataSource,table))
+                .build();
+
+        return tenantSpecificStep;
+    }
+
+    public List<String> getAllTenants(String tableName) {
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
+        String sql ="select distinct tenant_id from "+tableName;
+        List<String> allTenantsList=jdbcTemplate.queryForList(sql,String.class);
+        return allTenantsList;
+    }
+
+    public JdbcCursorItemReader<Map<String, Object>> itemReader(final DataSource dataSource,String tenant){
+        //get bp table data from postgresql
+        JdbcCursorItemReader<Map<String, Object>> itemReader = new JdbcCursorItemReader<>();
+        itemReader.setDataSource(dataSource);
+        itemReader.setSql("select * from bp b where b.tenant_id ='" + tenant + "'");
+        itemReader.setRowMapper(new ColumnMapRowMapper());
+        return itemReader;
+    }
+
+
+    public ItemWriter<Map<String,Object>> myItemwriter(final DataSource dataSource,final  String tableName) {
+
+        // insert into hana
+        MyItemWriter myItemWriter = new MyItemWriter(dataSource,tableName);
+        return myItemWriter;
     }
 
     public void migrationFailedRecordRetry(String tableName, String pkid) {
