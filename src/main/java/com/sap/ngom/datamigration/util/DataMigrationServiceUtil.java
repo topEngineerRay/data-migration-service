@@ -5,7 +5,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
@@ -36,7 +35,7 @@ public class DataMigrationServiceUtil {
     }
 
     private boolean isNameSpaceUsed () {
-        return targetTableNameSpace == null || !targetTableNameSpace.isEmpty();
+        return targetTableNameSpace != null && !targetTableNameSpace.isEmpty();
     }
 
 }

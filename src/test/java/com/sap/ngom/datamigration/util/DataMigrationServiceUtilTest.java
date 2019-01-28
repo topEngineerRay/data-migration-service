@@ -3,16 +3,9 @@ package com.sap.ngom.datamigration.util;
 import com.sap.ngom.datamigration.exception.DataMigrationProcessException;
 import org.junit.Assert;
 import org.junit.Before;
-import org.junit.BeforeClass;
 import org.junit.Test;
-import org.junit.runner.RunWith;
 import org.mockito.InjectMocks;
 import org.mockito.MockitoAnnotations;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
-import org.springframework.test.context.ContextConfiguration;
-import org.springframework.test.context.TestPropertySource;
-import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Arrays;
@@ -77,5 +70,14 @@ public class DataMigrationServiceUtilTest {
         ReflectionTestUtils.setField(dataMigrationServiceUtil, "sourceTableNames", sourceTableNames);
         ReflectionTestUtils.setField(dataMigrationServiceUtil, "sourceTableNamesList", sourceTableNamesList);
         Assert.assertEquals("bp",dataMigrationServiceUtil.getTargetTableName("fake"));
+    }
+
+    @Test
+    public void testGetTargetTableNameWithNameSpaceNull(){
+        String nameSpace = null;
+        ReflectionTestUtils.setField(dataMigrationServiceUtil, "targetTableNameSpace", nameSpace);
+        ReflectionTestUtils.setField(dataMigrationServiceUtil, "sourceTableNames", sourceTableNames);
+        ReflectionTestUtils.setField(dataMigrationServiceUtil, "sourceTableNamesList", sourceTableNamesList);
+        Assert.assertEquals("bp",dataMigrationServiceUtil.getTargetTableName("bp"));
     }
 }
