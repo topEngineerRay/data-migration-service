@@ -8,6 +8,8 @@ import com.sap.ngom.datamigration.model.JobResult;
 import com.sap.ngom.datamigration.processor.BPItemProcessor;
 import com.sap.ngom.datamigration.util.DataMigrationServiceUtil;
 import org.springframework.batch.core.*;
+import org.springframework.batch.core.configuration.DuplicateJobException;
+import org.springframework.batch.core.configuration.JobFactory;
 import org.springframework.batch.core.configuration.JobRegistry;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
@@ -67,6 +69,9 @@ public class DataMigrationService {
     @Autowired
     JobCompletionNotificationListener jobCompletionNotificationListener;
 
+    @Autowired
+    DataMigrationServiceUtil dataMigrationServiceUtil;
+
     JobExecution bpMigrationjobExecution = null;
     JobExecution addressMigrationJobExecution = null;
     JobExecution bprelationshipMigrationJobExecution = null;
@@ -109,12 +114,14 @@ public class DataMigrationService {
 
     }
 
-    public void triggerOneMigrationJob( String tableName) {
+    public void triggerOneMigrationJob(String tableName) {
         //we have two different type of jobs: FlowJob and SimpleJob
+
         try {
+            String jobName = tableName + "_" + "MigrationJobDynamic";
             List<Step> stepList = new ArrayList<Step>();
-            List<String> tenants = getAllTenants(tableName);
-            if(!tenants.isEmpty()) {
+            List<String> tenants = dataMigrationServiceUtil.getAllTenants(tableName, dataSource);
+            if (!tenants.isEmpty()) {
                 Step step = null;
                 //notice: For test purpose we'd better not migarate all tenants,
                 // or else there would be a lot of tenants,below code only migrate two tenants
@@ -123,16 +130,15 @@ public class DataMigrationService {
                     stepList.add(step);
                 }
                 //below code will migrate all tenants
-            /*  for (String tenant : tenants) {
-                step = createOneStep(tenant);
-                stepList.add(step);
-            }*/
+                    /*  for (String tenant : tenants) {
+                        step = createOneStep(tenant);
+                        stepList.add(step);
+                    }*/
 
-                SimpleJob migrationJob = (SimpleJob) jobBuilderFactory.get(tableName + "_" + "MigrationJobDynamic")
+                SimpleJob migrationJob = (SimpleJob) jobBuilderFactory.get(jobName)
                         .incrementer(new RunIdIncrementer())
                         .listener(jobCompletionNotificationListener).start(stepList.get(0))
                         .build();
-
                 migrationJob.setSteps(stepList);
                 jobLauncher.run(migrationJob, generateJobParams());
             }
@@ -161,12 +167,7 @@ public class DataMigrationService {
         return tenantSpecificStep;
     }
 
-    public List<String> getAllTenants(String tableName) {
-        JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
-        String sql = "select distinct tenant_id from " + tableName;
-        List<String> allTenantsList = jdbcTemplate.queryForList(sql, String.class);
-        return allTenantsList;
-    }
+
 
     public JdbcCursorItemReader<Map<String, Object>> itemReader(final DataSource dataSource, String tenant) {
         //get bp table data from postgresql
