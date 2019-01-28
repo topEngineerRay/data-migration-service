@@ -8,10 +8,15 @@ import org.springframework.stereotype.Component;
 
 //@Component("BPStepListener")
 public class BPStepListener implements StepExecutionListener {
+    private String tenantId;
+    public BPStepListener(String tenantId){
+        this.tenantId = tenantId;
+    }
+
     @Override
     public void beforeStep(StepExecution stepExecution) {
         TenantSpecificHANAMultitRoutingDataSource
-                .setTenant(TenantSpecificHANAMultitRoutingDataSource.getTenant(stepExecution.getStepName()));
+                .setTenant(this.tenantId);
     }
 
     @Override
