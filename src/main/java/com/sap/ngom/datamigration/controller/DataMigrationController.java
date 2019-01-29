@@ -51,13 +51,21 @@ public class DataMigrationController {
 
     @PostMapping("/data/cleanup/{tableName}")
     public ResponseEntity<Void> dataCleanup4OneTable(@PathVariable final String tableName) {
-        dataCleanupService.cleanData4OneTable(tableName);
+        try {
+            dataCleanupService.cleanData4OneTable(tableName);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         return ResponseEntity.ok().build();
     }
 
     @PostMapping("/data/cleanup")
     public ResponseEntity<Void> dataCleanup4AllTables() {
-        dataCleanupService.cleanData4AllTables();
+        try {
+            dataCleanupService.cleanData4AllTables();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         return ResponseEntity.ok().build();
     }
 }

@@ -1,6 +1,7 @@
 package com.sap.ngom.datamigration.service;
 
 import com.sap.ngom.datamigration.configuration.hana.TenantThreadLocalHolder;
+import com.sap.ngom.datamigration.exception.DataCleanupException;
 import com.sap.ngom.datamigration.util.DBConfigReader;
 import com.sap.ngom.datamigration.util.DataMigrationServiceUtil;
 import lombok.extern.log4j.Log4j2;
@@ -14,6 +15,8 @@ import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Service @Log4j2
 public class DataCleanupService {
@@ -31,12 +34,10 @@ public class DataCleanupService {
     @Autowired
     DBConfigReader dbConfigReader;
 
-    private String targetNamespace = "com.sap.ngom.db::BusinessPartner.";
     private static final Integer THREADS_NUMBERS = 5;
 
-    public void cleanData4OneTable(String tableName) {
+    public void cleanData4OneTable(String tableName) throws Exception {
         String targetTableName = dbConfigReader.getTargetTableName(tableName);
-        JdbcTemplate jdbcTemplate = new JdbcTemplate(sourceDataSource);
 
         List<String> tenantList = dataMigrationServiceUtil.getAllTenants(tableName, sourceDataSource);
         ExecutorService executorService = Executors.newFixedThreadPool(THREADS_NUMBERS);
@@ -56,7 +57,9 @@ public class DataCleanupService {
         }
 
         try {
-            tenantLatch.await(); // wait until latch counted down to 0
+            if(!tenantLatch.await(180, TimeUnit.SECONDS)) {
+                throw new DataCleanupException("Timeout for table: " + tableName);
+            }
         } catch (InterruptedException e) {
             log.error("Unexpected error occurs:", e);
         }
@@ -64,23 +67,33 @@ public class DataCleanupService {
         log.info("Cleanup done for all tenants in table: " + tableName);
     }
 
-    public void cleanData4AllTables() {
+    public void cleanData4AllTables() throws Exception{
         List<String> tableList = dbConfigReader.getSourceTableNames();
 
         ExecutorService executorService = Executors.newFixedThreadPool(THREADS_NUMBERS);
         CountDownLatch tableLatch = new CountDownLatch(tableList.size());
+        final AtomicBoolean hasError = new AtomicBoolean(false);
 
         for (String tableName : tableList) {
             executorService.submit(() -> {
-                cleanData4OneTable(tableName);
+                try {
+                    cleanData4OneTable(tableName);
+                } catch (Exception e) {
+                    hasError.set(true);
+                }
                 tableLatch.countDown();
                 log.info("Cleanup done for table: " + tableName);
             });
         }
         try {
-            tableLatch.await(); // wait until latch counted down to 0
+            if(!tableLatch.await(180, TimeUnit.SECONDS)) {
+                log.error("Timeout for all tables");
+            }
         } catch (InterruptedException e) {
             log.error("Unexpected error occurs:", e);
+        }
+        if(hasError.get() || tableLatch.getCount() != 0) {
+            throw new DataCleanupException("Error occurs when delete data in tables");
         }
         executorService.shutdown();
         log.info("Cleanup done for all tables." );
