@@ -12,7 +12,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.SynchronousQueue;
 
 @Component
-public class BPItemProcessor implements ItemProcessor<Map<String,Object>, Map<String,Object>> {
+public class CustomItemProcessor implements ItemProcessor<Map<String,Object>, Map<String,Object>> {
 
     @Autowired
     @Qualifier("routingDataSource")
@@ -22,9 +22,9 @@ public class BPItemProcessor implements ItemProcessor<Map<String,Object>, Map<St
     final BlockingQueue<ManagedServiceInstance> asyncResult = new SynchronousQueue<>();
 
     @Override
-    public Map process(Map bp) throws Exception {
+    public Map process(Map object) throws Exception {
 
-        return bp;//do nothing now
+        return object;//do nothing now
     }
 
 }

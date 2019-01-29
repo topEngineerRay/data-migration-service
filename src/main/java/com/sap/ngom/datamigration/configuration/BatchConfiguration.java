@@ -3,7 +3,7 @@ package com.sap.ngom.datamigration.configuration;
 import com.sap.ngom.datamigration.listener.BPStepListener;
 import com.sap.ngom.datamigration.listener.JobCompletionNotificationListener;
 import com.sap.ngom.datamigration.mapper.RowMapper.MapItemSqlParameterSourceProvider;
-import com.sap.ngom.datamigration.processor.BPItemProcessor;
+import com.sap.ngom.datamigration.processor.CustomItemProcessor;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.configuration.JobRegistry;
@@ -119,7 +119,7 @@ public class BatchConfiguration {
     //processor
     @Bean
     public ItemProcessor<Map<String,Object>, Map<String,Object>> BPprocessor() {
-        return new BPItemProcessor();
+        return new CustomItemProcessor();
     }
     //writer
     @Bean

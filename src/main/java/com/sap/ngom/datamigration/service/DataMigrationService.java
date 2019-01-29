@@ -4,11 +4,10 @@ import com.sap.ngom.datamigration.configuration.MyItemWriter;
 import com.sap.ngom.datamigration.exception.SourceTableNotDefinedException;
 import com.sap.ngom.datamigration.listener.BPStepListener;
 import com.sap.ngom.datamigration.listener.JobCompletionNotificationListener;
-import com.sap.ngom.datamigration.processor.BPItemProcessor;
+import com.sap.ngom.datamigration.processor.CustomItemProcessor;
 import com.sap.ngom.datamigration.util.DBConfigReader;
 import com.sap.ngom.datamigration.util.TenantHelper;
 import org.springframework.batch.core.*;
-import org.springframework.batch.core.configuration.JobRegistry;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.job.SimpleJob;
@@ -123,7 +122,7 @@ public class DataMigrationService {
                 .listener(new BPStepListener(tenant))
                 .<Map<String, Object>, Map<String, Object>>chunk(10).faultTolerant().noSkip(Exception.class).skipLimit(SKIP_LIMIT)
                 .reader(itemReader(dataSource, tenant))
-                .processor(new BPItemProcessor())
+                .processor(new CustomItemProcessor())
                 .writer(myItemwriter(detinationDataSource, table, targetNameSpace)).faultTolerant().noSkip(Exception.class).skipLimit(SKIP_LIMIT)
                 .build();
 
