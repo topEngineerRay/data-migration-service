@@ -24,7 +24,7 @@ public class DataMigrationController {
     @PostMapping("/jobs/{tableName}")
     public ResponseEntity<BatchStatus> triggerTableMigration(@PathVariable("tableName")final String tableName,
             @NotNull @RequestParam String jobParameters) {
-        return ResponseEntity.status(201).body(dataMigrationService.triggerOneMigrationJob(tableName, jobParameters));
+        return ResponseEntity.ok().body(dataMigrationService.triggerOneMigrationJob(tableName, jobParameters));
     }
 
     @GetMapping("/migrateSingleRecord")

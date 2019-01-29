@@ -1,6 +1,8 @@
 package com.sap.ngom.datamigration.service;
 
 import com.sap.ngom.datamigration.configuration.MyItemWriter;
+import com.sap.ngom.datamigration.exception.BadRequestValidationException;
+import com.sap.ngom.datamigration.exception.BatchJobException;
 import com.sap.ngom.datamigration.exception.SourceTableNotDefinedException;
 import com.sap.ngom.datamigration.listener.BPStepListener;
 import com.sap.ngom.datamigration.listener.JobCompletionNotificationListener;
@@ -70,9 +72,7 @@ public class DataMigrationService {
             List<String> tenants = tenantHelper.getAllTenants(tableName);
             if (!tenants.isEmpty()) {
 
-                JobParametersBuilder jobBuilder= new JobParametersBuilder();
-                jobBuilder.addString(jobName,jobParameter);
-                JobParameters jobParameters =jobBuilder.toJobParameters();
+                JobParameters jobParameters = getJobParameters(jobParameter, jobName);
 
                 Step step = null;
                 //notice: For test purpose we'd better not migarate all tenants,
@@ -92,11 +92,15 @@ public class DataMigrationService {
                         .listener(jobCompletionNotificationListener).start(stepList.get(0))
                         .build();
                 migrationJob.setSteps(stepList);
-                return jobLauncher.run(migrationJob, jobParameters).getStatus();
+                JobExecution jobExecution =  jobLauncher.run(migrationJob, jobParameters);
+                if(jobExecution.getStatus().equals("FAILED")){
+                    throw new BatchJobException(jobExecution.getAllFailureExceptions().toString());
+                }
+                return jobExecution.getStatus();
             }
 
         } catch (JobExecutionAlreadyRunningException e) {
-            e.printStackTrace();
+            throw new BadRequestValidationException(e.getMessage());
         } catch (JobRestartException e) {
             e.printStackTrace();
         } catch (JobInstanceAlreadyCompleteException e) {
@@ -105,6 +109,12 @@ public class DataMigrationService {
             e.printStackTrace();
         }
         return BatchStatus.FAILED;
+    }
+
+    private JobParameters getJobParameters(String jobParameter, String jobName) {
+        JobParametersBuilder jobBuilder= new JobParametersBuilder();
+        jobBuilder.addString(jobName,jobParameter);
+        return jobBuilder.toJobParameters();
     }
 
     private void tableNameValidation(String tableName) {
