@@ -41,7 +41,7 @@ public class DataMigrationController {
     @GetMapping("/migrationOneJob/{serviceName}/{migrationJobName}")
     public void migrationJobRetry(@PathVariable("serviceName")final String serviceName,
                                   @PathVariable("migrationJobName")final String jobName) {
-        dataMigrationService.triggerOneMigrationJob(serviceName,jobName);
+        dataMigrationService.triggerOneMigrationJob(jobName);
     }
 
     @GetMapping("/migrateSingleRecord")
@@ -49,14 +49,15 @@ public class DataMigrationController {
         dataMigrationService.migrationFailedRecordRetry(tableName, PKID);
     }
 
-    @PostMapping("/migration/{tableName}")
-    public void test(@PathVariable final String tableName) {
-        dataMigrationService.migrationForData(tableName);
-    }
-
     @PostMapping("/data/cleanup/{tableName}")
     public ResponseEntity<Void> dataCleanup4OneTable(@PathVariable final String tableName) {
         dataCleanupService.cleanData4OneTable(tableName);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/data/cleanup")
+    public ResponseEntity<Void> dataCleanup4AllTables() {
+        dataCleanupService.cleanData4AllTables();
         return ResponseEntity.ok().build();
     }
 }
