@@ -1,6 +1,6 @@
 package com.sap.ngom.datamigration.listener;
 
-import com.sap.ngom.datamigration.configuration.hana.TenantSpecificHANAMultitRoutingDataSource;
+import com.sap.ngom.datamigration.configuration.hana.TenantThreadLocalHolder;
 import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.StepExecution;
 import org.springframework.batch.core.StepExecutionListener;
@@ -14,8 +14,7 @@ public class BPStepListener implements StepExecutionListener {
 
     @Override
     public void beforeStep(StepExecution stepExecution) {
-        TenantSpecificHANAMultitRoutingDataSource
-                .setTenant(this.tenantId);
+        TenantThreadLocalHolder.setTenant(this.tenantId);
     }
 
     @Override

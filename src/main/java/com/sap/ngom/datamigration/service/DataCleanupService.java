@@ -1,5 +1,6 @@
 package com.sap.ngom.datamigration.service;
 
+import com.sap.ngom.datamigration.configuration.hana.TenantThreadLocalHolder;
 import com.sap.ngom.datamigration.util.DBConfigReader;
 import com.sap.ngom.datamigration.util.DataMigrationServiceUtil;
 import lombok.extern.log4j.Log4j2;
@@ -7,7 +8,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
-import com.sap.ngom.datamigration.configuration.hana.TenantSpecificHANAMultitRoutingDataSource;
 
 import javax.sql.DataSource;
 import java.util.List;
@@ -45,7 +45,7 @@ public class DataCleanupService {
         for (String tenant : tenantList) {
             executorService.submit(() -> {
                 //change data source
-                TenantSpecificHANAMultitRoutingDataSource.setTenant(tenant);
+                TenantThreadLocalHolder.setTenant(tenant);
 
                 JdbcTemplate hanaJdbcTemplate = new JdbcTemplate(targetDataSource);
                 hanaJdbcTemplate.execute("delete from " + "\"" + targetTableName + "\"");
