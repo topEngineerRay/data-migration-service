@@ -1,18 +1,15 @@
 package com.sap.ngom.datamigration.service;
 
+import com.sap.ngom.datamigration.util.DBConfigReader;
 import com.sap.ngom.datamigration.util.DataMigrationServiceUtil;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.jdbc.core.RowMapper;
 import org.springframework.stereotype.Service;
 import com.sap.ngom.datamigration.configuration.hana.TenantSpecificHANAMultitRoutingDataSource;
 
 import javax.sql.DataSource;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -31,18 +28,15 @@ public class DataCleanupService {
     @Autowired
     DataMigrationServiceUtil dataMigrationServiceUtil;
 
+    @Autowired
+    DBConfigReader dbConfigReader;
+
     private String targetNamespace = "com.sap.ngom.db::BusinessPartner.";
     private static final Integer THREADS_NUMBERS = 5;
 
     public void cleanData4OneTable(String tableName) {
+        String targetTableName = dbConfigReader.getTargetTableName(tableName);
         JdbcTemplate jdbcTemplate = new JdbcTemplate(sourceDataSource);
-//        List<String> tenantList = jdbcTemplate.query("select tenant_id from " + tableName + " group by tenant_id", new RowMapper<String>() {
-//            @Override
-//            public String mapRow(ResultSet resultSet, int i) throws SQLException {
-//                System.out.println("i: " + i);
-//                return resultSet.getString("tenant_id");
-//            }
-//        });
 
         List<String> tenantList = dataMigrationServiceUtil.getAllTenants(tableName, sourceDataSource);
         ExecutorService executorService = Executors.newFixedThreadPool(THREADS_NUMBERS);
@@ -54,7 +48,7 @@ public class DataCleanupService {
                 TenantSpecificHANAMultitRoutingDataSource.setTenant(tenant);
 
                 JdbcTemplate hanaJdbcTemplate = new JdbcTemplate(destinationDataSource);
-                hanaJdbcTemplate.execute("delete from " + "\"" + targetNamespace + tableName + "\"");
+                hanaJdbcTemplate.execute("delete from " + "\"" + targetTableName + "\"");
 
                 tenantLatch.countDown();
                 log.info("Cleanup done for tenant: " + tenant + " in table: " + tableName);
@@ -71,14 +65,7 @@ public class DataCleanupService {
     }
 
     public void cleanData4AllTables() {
-        List<String> tableList = new ArrayList<>();
-        tableList.add("bp");
-        tableList.add("address");
-        tableList.add("market");
-        tableList.add("bprelationship");
-        tableList.add("customreference");
-        tableList.add("externalinfo");
-        tableList.add("objectreplicationstatus");
+        List<String> tableList = dbConfigReader.getSourceTableNames();
 
         ExecutorService executorService = Executors.newFixedThreadPool(THREADS_NUMBERS);
         CountDownLatch tableLatch = new CountDownLatch(tableList.size());
