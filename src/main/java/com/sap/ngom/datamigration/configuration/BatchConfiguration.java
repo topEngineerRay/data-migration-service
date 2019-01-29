@@ -40,7 +40,7 @@ public class BatchConfiguration {
     private DataSource dataSource;
 
     @Autowired
-    @Qualifier("MTRoutingDataSource")
+    @Qualifier("targetDataSource")
     DataSource detinationDataSource;
 
     public JobBuilderFactory jobBuilderFactory;

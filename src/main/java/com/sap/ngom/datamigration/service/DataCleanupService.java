@@ -22,8 +22,8 @@ public class DataCleanupService {
     private DataSource sourceDataSource;
 
     @Autowired
-    @Qualifier("MTRoutingDataSource")
-    private DataSource destinationDataSource;
+    @Qualifier("targetDataSource")
+    private DataSource targetDataSource;
 
     @Autowired
     DataMigrationServiceUtil dataMigrationServiceUtil;
@@ -47,7 +47,7 @@ public class DataCleanupService {
                 //change data source
                 TenantSpecificHANAMultitRoutingDataSource.setTenant(tenant);
 
-                JdbcTemplate hanaJdbcTemplate = new JdbcTemplate(destinationDataSource);
+                JdbcTemplate hanaJdbcTemplate = new JdbcTemplate(targetDataSource);
                 hanaJdbcTemplate.execute("delete from " + "\"" + targetTableName + "\"");
 
                 tenantLatch.countDown();

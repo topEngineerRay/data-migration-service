@@ -57,7 +57,7 @@ public class DataMigrationService {
     private DataSource dataSource;
 
     @Autowired
-    @Qualifier("MTRoutingDataSource")
+    @Qualifier("targetDataSource")
     DataSource detinationDataSource;
 
     @Autowired
