@@ -3,7 +3,7 @@ package com.sap.ngom.datamigration.service;
 import com.sap.ngom.datamigration.configuration.hana.TenantThreadLocalHolder;
 import com.sap.ngom.datamigration.exception.DataCleanupException;
 import com.sap.ngom.datamigration.util.DBConfigReader;
-import com.sap.ngom.datamigration.util.DataMigrationServiceUtil;
+import com.sap.ngom.datamigration.util.TenantHelper;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -21,25 +21,21 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Service @Log4j2
 public class DataCleanupService {
     @Autowired
-    @Qualifier("sourceDataSource")
-    private DataSource sourceDataSource;
-
-    @Autowired
     @Qualifier("targetDataSource")
     private DataSource targetDataSource;
 
     @Autowired
-    DataMigrationServiceUtil dataMigrationServiceUtil;
+    TenantHelper tenantHelper;
 
     @Autowired
     DBConfigReader dbConfigReader;
 
     private static final Integer THREADS_NUMBERS = 5;
 
-    public void cleanData4OneTable(String tableName) throws Exception {
+    public void cleanData4OneTable(String tableName) {
         String targetTableName = dbConfigReader.getTargetTableName(tableName);
 
-        List<String> tenantList = dataMigrationServiceUtil.getAllTenants(tableName, sourceDataSource);
+        List<String> tenantList = tenantHelper.getAllTenants(tableName);
         ExecutorService executorService = Executors.newFixedThreadPool(THREADS_NUMBERS);
         CountDownLatch tenantLatch = new CountDownLatch(tenantList.size());
 
@@ -67,7 +63,7 @@ public class DataCleanupService {
         log.info("Cleanup done for all tenants in table: " + tableName);
     }
 
-    public void cleanData4AllTables() throws Exception{
+    public void cleanData4AllTables() {
         List<String> tableList = dbConfigReader.getSourceTableNames();
 
         ExecutorService executorService = Executors.newFixedThreadPool(THREADS_NUMBERS);

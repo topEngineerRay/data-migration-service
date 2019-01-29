@@ -3,13 +3,10 @@ package com.sap.ngom.datamigration.service;
 import com.sap.ngom.datamigration.configuration.MyItemWriter;
 import com.sap.ngom.datamigration.listener.BPStepListener;
 import com.sap.ngom.datamigration.listener.JobCompletionNotificationListener;
-import com.sap.ngom.datamigration.mapper.RowMapper.MapItemSqlParameterSourceProvider;
 import com.sap.ngom.datamigration.model.JobResult;
 import com.sap.ngom.datamigration.processor.BPItemProcessor;
-import com.sap.ngom.datamigration.util.DataMigrationServiceUtil;
+import com.sap.ngom.datamigration.util.TenantHelper;
 import org.springframework.batch.core.*;
-import org.springframework.batch.core.configuration.DuplicateJobException;
-import org.springframework.batch.core.configuration.JobFactory;
 import org.springframework.batch.core.configuration.JobRegistry;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
@@ -20,19 +17,11 @@ import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.core.repository.JobExecutionAlreadyRunningException;
 import org.springframework.batch.core.repository.JobInstanceAlreadyCompleteException;
 import org.springframework.batch.core.repository.JobRestartException;
-import org.springframework.batch.item.ItemReader;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.database.JdbcCursorItemReader;
-import org.springframework.batch.item.database.JdbcPagingItemReader;
-import org.springframework.batch.item.database.builder.JdbcBatchItemWriterBuilder;
-import org.springframework.batch.item.database.support.SqlPagingQueryProviderFactoryBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.config.ConfigurableListableBeanFactory;
-import org.springframework.context.ApplicationContext;
-import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.jdbc.core.ColumnMapRowMapper;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import javax.sql.DataSource;
@@ -70,7 +59,7 @@ public class DataMigrationService {
     JobCompletionNotificationListener jobCompletionNotificationListener;
 
     @Autowired
-    DataMigrationServiceUtil dataMigrationServiceUtil;
+    TenantHelper tenantHelper;
 
     JobExecution bpMigrationjobExecution = null;
     JobExecution addressMigrationJobExecution = null;
@@ -120,7 +109,7 @@ public class DataMigrationService {
         try {
             String jobName = tableName + "_" + "MigrationJobDynamic";
             List<Step> stepList = new ArrayList<Step>();
-            List<String> tenants = dataMigrationServiceUtil.getAllTenants(tableName, dataSource);
+            List<String> tenants = tenantHelper.getAllTenants(tableName);
             if (!tenants.isEmpty()) {
                 Step step = null;
                 //notice: For test purpose we'd better not migarate all tenants,
