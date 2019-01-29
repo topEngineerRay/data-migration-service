@@ -1,6 +1,5 @@
 package com.sap.ngom.datamigration.configuration;
 
-import com.sap.ngom.datamigration.configuration.hanaDBConfiguration.TenantSpecificHANAMultitRoutingDataSource;
 import com.sap.ngom.datamigration.listener.BPStepListener;
 import com.sap.ngom.datamigration.listener.JobCompletionNotificationListener;
 import com.sap.ngom.datamigration.mapper.RowMapper.MapItemSqlParameterSourceProvider;
@@ -27,7 +26,6 @@ import org.springframework.core.io.ResourceLoader;
 import org.springframework.jdbc.core.ColumnMapRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
-import org.springframework.transaction.PlatformTransactionManager;
 
 import javax.sql.DataSource;
 import java.util.Map;
@@ -42,7 +40,7 @@ public class BatchConfiguration {
     private DataSource dataSource;
 
     @Autowired
-    @Qualifier("MTRoutingDataSource")
+    @Qualifier("targetDataSource")
     DataSource detinationDataSource;
 
     public JobBuilderFactory jobBuilderFactory;

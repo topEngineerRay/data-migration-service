@@ -12,10 +12,10 @@ import java.util.List;
 public class DBConfigReader {
 
     @Value("${data.migration.db.source.tables}")
-    private String targetTableNameSpace;
+    private String[] sourceTableNames;
 
     @Value("${data.migration.db.target.namespace}")
-    private String[] sourceTableNames;
+    private String targetTableNameSpace;
 
     private List<String> sourceTableNamesList;
 
