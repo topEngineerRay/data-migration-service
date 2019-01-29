@@ -93,7 +93,7 @@ public class DataMigrationService {
                         .build();
                 migrationJob.setSteps(stepList);
                 JobExecution jobExecution =  jobLauncher.run(migrationJob, jobParameters);
-                if(jobExecution.getStatus().equals("FAILED")){
+                if(jobExecution.getStatus().toString().equals("FAILED")){
                     throw new BatchJobException(jobExecution.getAllFailureExceptions().toString());
                 }
                 return jobExecution.getStatus();
