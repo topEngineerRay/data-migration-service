@@ -1,10 +1,11 @@
 package com.sap.ngom.datamigration.service;
 
 import com.sap.ngom.datamigration.configuration.MyItemWriter;
+import com.sap.ngom.datamigration.exception.SourceTableNotDefinedException;
 import com.sap.ngom.datamigration.listener.BPStepListener;
 import com.sap.ngom.datamigration.listener.JobCompletionNotificationListener;
-import com.sap.ngom.datamigration.model.JobResult;
 import com.sap.ngom.datamigration.processor.BPItemProcessor;
+import com.sap.ngom.datamigration.util.DBConfigReader;
 import com.sap.ngom.datamigration.util.TenantHelper;
 import org.springframework.batch.core.*;
 import org.springframework.batch.core.configuration.JobRegistry;
@@ -12,7 +13,6 @@ import org.springframework.batch.core.configuration.annotation.JobBuilderFactory
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.job.SimpleJob;
 import org.springframework.batch.core.launch.JobLauncher;
-import org.springframework.batch.core.launch.NoSuchJobException;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.core.repository.JobExecutionAlreadyRunningException;
 import org.springframework.batch.core.repository.JobInstanceAlreadyCompleteException;
@@ -36,9 +36,6 @@ public class DataMigrationService {
     @Autowired
     JobLauncher jobLauncher;
 
-    @Autowired
-    JobRegistry jobRegistry;
-
     private static final int SKIP_LIMIT = 10;
 
     @Autowired
@@ -47,70 +44,37 @@ public class DataMigrationService {
 
     @Autowired
     @Qualifier("targetDataSource")
-    DataSource detinationDataSource;
+    private DataSource detinationDataSource;
 
     @Autowired
-    public JobBuilderFactory jobBuilderFactory;
+    private JobBuilderFactory jobBuilderFactory;
 
     @Autowired
-    public StepBuilderFactory stepBuilderFactory;
+    private StepBuilderFactory stepBuilderFactory;
 
     @Autowired
-    JobCompletionNotificationListener jobCompletionNotificationListener;
+    private JobCompletionNotificationListener jobCompletionNotificationListener;
 
     @Autowired
-    TenantHelper tenantHelper;
+    private TenantHelper tenantHelper;
 
-    JobExecution bpMigrationjobExecution = null;
-    JobExecution addressMigrationJobExecution = null;
-    JobExecution bprelationshipMigrationJobExecution = null;
-    JobExecution customreferenceMigrationJobExecution = null;
-    JobExecution externalinfoMigrationJobExecution = null;
-    JobExecution marketMigrationJobExecution = null;
-    JobExecution objectreplicationstatusMigrationJobExecution = null;
+    @Autowired
+    private DBConfigReader dbConfigReader;
 
-    public void triggerBpMigration(String serviceName) {
-        //run all job
-        try {
-            Job bpMigrationjob = jobRegistry.getJob("bpMigrationJob");
-            Job addressMigrationJob = jobRegistry.getJob("addressMigrationJob");
-            Job bprelationshipMigrationJob = jobRegistry.getJob("bprelationshipMigrationJob");
-            Job customreferenceMigrationJob = jobRegistry.getJob("customreferenceMigrationJob");
-            Job externalinfoMigrationJob = jobRegistry.getJob("externalinfoMigrationJob");
-            Job marketMigrationJob = jobRegistry.getJob("marketMigrationJob");
-            Job objectreplicationstatusMigrationJob = jobRegistry.getJob("objectreplicationstatusMigrationJob");
 
-            bpMigrationjobExecution = jobLauncher.run(bpMigrationjob, generateJobParams());
-            addressMigrationJobExecution = jobLauncher.run(addressMigrationJob, generateJobParams());
-            bprelationshipMigrationJobExecution = jobLauncher.run(bprelationshipMigrationJob, generateJobParams());
-            customreferenceMigrationJobExecution = jobLauncher.run(customreferenceMigrationJob, generateJobParams());
-            externalinfoMigrationJobExecution = jobLauncher.run(externalinfoMigrationJob, generateJobParams());
-            marketMigrationJobExecution = jobLauncher.run(marketMigrationJob, generateJobParams());
-            objectreplicationstatusMigrationJobExecution = jobLauncher
-                    .run(objectreplicationstatusMigrationJob, generateJobParams());
-
-        } catch (NoSuchJobException e) {
-            e.printStackTrace();
-        } catch (JobExecutionAlreadyRunningException e) {
-            e.printStackTrace();
-        } catch (JobRestartException e) {
-            e.printStackTrace();
-        } catch (JobInstanceAlreadyCompleteException e) {
-            e.printStackTrace();
-        } catch (JobParametersInvalidException e) {
-            e.printStackTrace();
-        }
-
-    }
-
-    public void triggerOneMigrationJob(String tableName) {
+    public BatchStatus triggerOneMigrationJob(String tableName, String jobParameter) {
         //we have two different type of jobs: FlowJob and SimpleJob
-
+        tableNameValidation(tableName);
         try {
             String jobName = tableName + "_" + "MigrationJobDynamic";
             List<Step> stepList = new ArrayList<Step>();
             List<String> tenants = tenantHelper.getAllTenants(tableName);
             if (!tenants.isEmpty()) {
+
+                JobParametersBuilder jobBuilder= new JobParametersBuilder();
+                jobBuilder.addString(jobName,jobParameter);
+                JobParameters jobParameters =jobBuilder.toJobParameters();
+
                 Step step = null;
                 //notice: For test purpose we'd better not migarate all tenants,
                 // or else there would be a lot of tenants,below code only migrate two tenants
@@ -129,7 +93,7 @@ public class DataMigrationService {
                         .listener(jobCompletionNotificationListener).start(stepList.get(0))
                         .build();
                 migrationJob.setSteps(stepList);
-                jobLauncher.run(migrationJob, generateJobParams());
+                return jobLauncher.run(migrationJob, jobParameters).getStatus();
             }
 
         } catch (JobExecutionAlreadyRunningException e) {
@@ -141,16 +105,26 @@ public class DataMigrationService {
         } catch (JobParametersInvalidException e) {
             e.printStackTrace();
         }
+        return BatchStatus.FAILED;
+    }
+
+    private void tableNameValidation(String tableName) {
+        if(!dbConfigReader.getSourceTableNames().contains(tableName)){
+            throw new SourceTableNotDefinedException("There is no table:"+tableName+"in the database");
+        }
     }
 
     private Step createOneStep(String tenant, String table) {
         //not skip any exceptions now
+
+        String targetNameSpace = dbConfigReader.getTargetNameSpace();
+
         Step tenantSpecificStep = stepBuilderFactory.get(table + "_" + tenant + "_" + "MigrationStepDynamic")
                 .listener(new BPStepListener(tenant))
                 .<Map<String, Object>, Map<String, Object>>chunk(10).faultTolerant().noSkip(Exception.class).skipLimit(SKIP_LIMIT)
                 .reader(itemReader(dataSource, tenant))
                 .processor(new BPItemProcessor())
-                .writer(myItemwriter(detinationDataSource, table)).faultTolerant().noSkip(Exception.class).skipLimit(SKIP_LIMIT)
+                .writer(myItemwriter(detinationDataSource, table, targetNameSpace)).faultTolerant().noSkip(Exception.class).skipLimit(SKIP_LIMIT)
                 .build();
 
         return tenantSpecificStep;
@@ -167,10 +141,9 @@ public class DataMigrationService {
         return itemReader;
     }
 
-    public ItemWriter<Map<String, Object>> myItemwriter(final DataSource dataSource, final String tableName) {
-
+    public ItemWriter<Map<String, Object>> myItemwriter(final DataSource dataSource, final String tableName, final String targetNameSpace) {
         // insert into hana
-        MyItemWriter myItemWriter = new MyItemWriter(dataSource, tableName);
+        MyItemWriter myItemWriter = new MyItemWriter(dataSource, tableName, targetNameSpace);
         return myItemWriter;
     }
 
@@ -182,34 +155,4 @@ public class DataMigrationService {
         return new JobParametersBuilder().addDate("date", new Date()).toJobParameters();
     }
 
-    public List<BatchStatus> getAllJobsStatus(String serviceName) {
-        List<BatchStatus> statusList = new ArrayList<>();
-        if (null != bpMigrationjobExecution)
-            statusList.add(bpMigrationjobExecution.getStatus());
-
-        if (null != addressMigrationJobExecution)
-            statusList.add(addressMigrationJobExecution.getStatus());
-
-        if (null != bprelationshipMigrationJobExecution)
-            statusList.add(bprelationshipMigrationJobExecution.getStatus());
-
-        if (null != customreferenceMigrationJobExecution)
-            statusList.add(customreferenceMigrationJobExecution.getStatus());
-
-        if (null != externalinfoMigrationJobExecution)
-            statusList.add(externalinfoMigrationJobExecution.getStatus());
-
-        if (null != marketMigrationJobExecution)
-            statusList.add(marketMigrationJobExecution.getStatus());
-
-        if (null != objectreplicationstatusMigrationJobExecution)
-            statusList.add(objectreplicationstatusMigrationJobExecution.getStatus());
-
-        return statusList;
-    }
-
-    public JobResult getJobsStatus(String jobName) {
-
-        return null;
-    }
 }

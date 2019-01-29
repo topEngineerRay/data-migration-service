@@ -1,13 +1,9 @@
 package com.sap.ngom.datamigration.configuration;
 
-import com.sap.ngom.datamigration.mapper.RowMapper.MapItemSqlParameterSourceProvider;
 import org.springframework.batch.item.ItemWriter;
-import org.springframework.batch.item.database.builder.JdbcBatchItemWriterBuilder;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
 
 import javax.sql.DataSource;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -16,10 +12,11 @@ public class MyItemWriter implements ItemWriter<Map<String,Object>> {
 
     private DataSource dataSource;
     private String table;
-
-    public MyItemWriter(DataSource dataSource, String table) {
+    private String nameSpace;
+    public MyItemWriter(DataSource dataSource, String table, String nameSpace) {
         this.dataSource = dataSource;
         this.table = table;
+        this.nameSpace = nameSpace;
     }
 
     @Override
@@ -28,18 +25,26 @@ public class MyItemWriter implements ItemWriter<Map<String,Object>> {
             return;
         }
         //get all columns
-        Map map = list.get(0);
-        Set<String> set = map.keySet();
-        set.remove("tenant_id");
-        String[] columns = set.toArray(new String[set.size()]);
-
+        String[] columns = getColumns(list);
         SimpleJdbcInsert jdbcInsert = new SimpleJdbcInsert(dataSource)
                 .usingColumns(columns)
-                .withTableName("\"com.sap.ngom.db::BusinessPartner." + table+"\"");
+                .withTableName(buildHanaTableName(nameSpace,table));
 
         list.forEach(row -> {
             jdbcInsert.execute(row);
         });
 
+    }
+
+    private String[] getColumns(List<? extends Map<String, Object>> list) {
+        Map map = list.get(0);
+        Set<String> set = map.keySet();
+        //Does all the table have the same name convetion of tenant? This require a investigation
+        set.remove("tenant_id");
+        return set.toArray(new String[set.size()]);
+    }
+
+    private  String buildHanaTableName(String nameSpace,String table){
+        return "\""+ nameSpace + "." + table+"\"";
     }
 }

@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
+import javax.validation.constraints.NotNull;
 import java.util.List;
 
 @RequestMapping(value = "/v1")
@@ -20,28 +21,10 @@ public class DataMigrationController {
     @Autowired
     DataCleanupService dataCleanupService;
 
-    //get job status
-    @GetMapping("/{serviceName}/allJobStatus")
-    public List<BatchStatus> getJobStatus(@PathVariable("serviceName")final String serviceName) {
-       return dataMigrationService.getAllJobsStatus(serviceName);
-    }
-
-    //get job status
-    @GetMapping("/allJobStatus/{serviceName}/{migrationJobName}")
-    public JobResult getJobStatus(@PathVariable("serviceName")final String serviceName,
-                                  @PathVariable("migrationJobName")final String jobName) {
-        return dataMigrationService.getJobsStatus(jobName);
-    }
-
-    @GetMapping("/tiggerAllJob/{serviceName}")
-    public void triggerBpMigration(@PathVariable("serviceName")final String serviceName) {
-        dataMigrationService.triggerBpMigration(serviceName);
-    }
-
-    @GetMapping("/migrationOneJob/{serviceName}/{migrationJobName}")
-    public void migrationJobRetry(@PathVariable("serviceName")final String serviceName,
-                                  @PathVariable("migrationJobName")final String jobName) {
-        dataMigrationService.triggerOneMigrationJob(jobName);
+    @PostMapping("/jobs/{tableName}")
+    public ResponseEntity<BatchStatus> triggerTableMigration(@PathVariable("tableName")final String tableName,
+            @NotNull @RequestParam String jobParameters) {
+        return ResponseEntity.status(201).body(dataMigrationService.triggerOneMigrationJob(tableName, jobParameters));
     }
 
     @GetMapping("/migrateSingleRecord")
