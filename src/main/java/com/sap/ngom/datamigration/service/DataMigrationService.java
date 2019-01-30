@@ -1,9 +1,11 @@
 package com.sap.ngom.datamigration.service;
 
 import com.sap.ngom.datamigration.configuration.MyItemWriter;
+import com.sap.ngom.datamigration.exception.NoJobExistForGivenTableException;
 import com.sap.ngom.datamigration.listener.BPStepListener;
 import com.sap.ngom.datamigration.listener.JobCompletionNotificationListener;
 import com.sap.ngom.datamigration.model.JobResult;
+import com.sap.ngom.datamigration.model.JobStatus;
 import com.sap.ngom.datamigration.processor.BPItemProcessor;
 import com.sap.ngom.datamigration.util.TenantHelper;
 import org.springframework.batch.core.*;
@@ -12,10 +14,12 @@ import org.springframework.batch.core.configuration.annotation.JobBuilderFactory
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.job.SimpleJob;
 import org.springframework.batch.core.launch.JobLauncher;
+import org.springframework.batch.core.launch.JobOperator;
 import org.springframework.batch.core.launch.NoSuchJobException;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.core.repository.JobExecutionAlreadyRunningException;
 import org.springframework.batch.core.repository.JobInstanceAlreadyCompleteException;
+import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.repository.JobRestartException;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.database.JdbcCursorItemReader;
@@ -60,6 +64,12 @@ public class DataMigrationService {
 
     @Autowired
     TenantHelper tenantHelper;
+
+    @Autowired
+    JobRepository jobRepository;
+
+    @Autowired
+    JobOperator jobOperator;
 
     JobExecution bpMigrationjobExecution = null;
     JobExecution addressMigrationJobExecution = null;
@@ -129,7 +139,7 @@ public class DataMigrationService {
                         .listener(jobCompletionNotificationListener).start(stepList.get(0))
                         .build();
                 migrationJob.setSteps(stepList);
-                jobLauncher.run(migrationJob, generateJobParams());
+                jobLauncher.run(migrationJob, getJobParameters("jobParameter1",jobName));
             }
 
         } catch (JobExecutionAlreadyRunningException e) {
@@ -208,8 +218,18 @@ public class DataMigrationService {
         return statusList;
     }
 
-    public JobResult getJobsStatus(String jobName) {
+    public JobStatus getJobsStatus(String tableName) {
+            String jobName = tableName+"_MigrationJobDynamic";
+            JobExecution jobExecution = jobRepository.getLastJobExecution(jobName,getJobParameters("jobParameter1", jobName));
+            if(null == jobExecution){
+                throw new NoJobExistForGivenTableException("No job execution found for table " + tableName);
+            }
+            return JobStatus.builder().table(tableName).jobStatus(jobExecution.getStatus()).build();
+    }
 
-        return null;
+    private JobParameters getJobParameters(String jobParameter, String jobName) {
+        JobParametersBuilder jobBuilder= new JobParametersBuilder();
+        jobBuilder.addString(jobName,jobParameter);
+        return jobBuilder.toJobParameters();
     }
 }

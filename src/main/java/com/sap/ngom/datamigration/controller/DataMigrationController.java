@@ -1,6 +1,7 @@
 package com.sap.ngom.datamigration.controller;
 
 import com.sap.ngom.datamigration.model.JobResult;
+import com.sap.ngom.datamigration.model.JobStatus;
 import com.sap.ngom.datamigration.service.DataCleanupService;
 import com.sap.ngom.datamigration.service.DataMigrationService;
 import org.springframework.batch.core.BatchStatus;
@@ -21,16 +22,16 @@ public class DataMigrationController {
     DataCleanupService dataCleanupService;
 
     //get job status
-    @GetMapping("/{serviceName}/allJobStatus")
+    @GetMapping("/jobs/allJobStatus")
     public List<BatchStatus> getJobStatus(@PathVariable("serviceName")final String serviceName) {
        return dataMigrationService.getAllJobsStatus(serviceName);
     }
 
     //get job status
-    @GetMapping("/allJobStatus/{serviceName}/{migrationJobName}")
-    public JobResult getJobStatus(@PathVariable("serviceName")final String serviceName,
-                                  @PathVariable("migrationJobName")final String jobName) {
-        return dataMigrationService.getJobsStatus(jobName);
+    @GetMapping("/jobs/{tableName}")
+    @ResponseBody
+    public JobStatus getOneJobStatus(@PathVariable("tableName")final String tableName) {
+        return dataMigrationService.getJobsStatus(tableName);
     }
 
     @GetMapping("/tiggerAllJob/{serviceName}")
