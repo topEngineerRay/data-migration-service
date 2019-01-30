@@ -3,6 +3,7 @@ package com.sap.ngom.datamigration.controller;
 import com.sap.ngom.datamigration.model.JobResult;
 import com.sap.ngom.datamigration.service.DataCleanupService;
 import com.sap.ngom.datamigration.service.DataMigrationService;
+import com.sap.ngom.datamigration.util.MessageBuilder;
 import org.springframework.batch.core.BatchStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -50,14 +51,21 @@ public class DataMigrationController {
     }
 
     @PostMapping("/data/cleanup/{tableName}")
-    public ResponseEntity<Void> dataCleanup4OneTable(@PathVariable final String tableName) {
+    public ResponseEntity<MessageBuilder> dataCleanup4OneTable(@PathVariable final String tableName) {
         dataCleanupService.cleanData4OneTable(tableName);
-        return ResponseEntity.ok().build();
+
+        MessageBuilder messageBuilder = new MessageBuilder();
+        messageBuilder.setStatus("SUCCESS");
+        messageBuilder.setMessage("Data cleanup successfully done for the table: " + tableName + ".");
+        return ResponseEntity.ok().body(messageBuilder);
     }
 
     @PostMapping("/data/cleanup")
-    public ResponseEntity<Void> dataCleanup4AllTables() {
+    public ResponseEntity<MessageBuilder> dataCleanup4AllTables() {
         dataCleanupService.cleanData4AllTables();
-        return ResponseEntity.ok().build();
+        MessageBuilder messageBuilder = new MessageBuilder();
+        messageBuilder.setStatus("SUCCESS");
+        messageBuilder.setMessage("Data cleanup successfully done for all the tables.");
+        return ResponseEntity.ok().body(messageBuilder);
     }
 }

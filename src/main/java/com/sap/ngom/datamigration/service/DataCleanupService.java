@@ -7,6 +7,7 @@ import com.sap.ngom.datamigration.util.TenantHelper;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -38,6 +39,7 @@ public class DataCleanupService {
         List<String> tenantList = tenantHelper.getAllTenants(tableName);
         ExecutorService executorService = Executors.newFixedThreadPool(THREADS_NUMBERS);
         CountDownLatch tenantLatch = new CountDownLatch(tenantList.size());
+        final AtomicBoolean hasError = new AtomicBoolean(false);
 
         for (String tenant : tenantList) {
             executorService.submit(() -> {
@@ -45,22 +47,29 @@ public class DataCleanupService {
                 TenantThreadLocalHolder.setTenant(tenant);
 
                 JdbcTemplate hanaJdbcTemplate = new JdbcTemplate(targetDataSource);
-                hanaJdbcTemplate.execute("delete from " + "\"" + targetTableName + "\"");
-
+                try {
+                    hanaJdbcTemplate.execute("delete from " + "\"" + targetTableName + "\"");
+                }catch (DataAccessException e) {
+                    hasError.set(true);
+                    log.error("++++ Exception occurs for tenant: " + tenant + " in table: " + tableName + e.getMessage());
+                }
                 tenantLatch.countDown();
                 log.info("Cleanup done for tenant: " + tenant + " in table: " + tableName);
             });
         }
 
         try {
-            if(!tenantLatch.await(180, TimeUnit.SECONDS)) {
-                throw new DataCleanupException("Timeout for table: " + tableName);
+            if(!tenantLatch.await(120, TimeUnit.SECONDS)) {
+                log.error("Timeout for table: " + tableName);
             }
         } catch (InterruptedException e) {
             log.error("Unexpected error occurs:", e);
         }
         executorService.shutdown();
-        log.info("Cleanup done for all tenants in table: " + tableName);
+        if(hasError.get() || tenantLatch.getCount() != 0) {
+            throw new DataCleanupException("Error occurs when delete data in table: " + tableName);
+        }
+        log.info("<<<<< Cleanup done for table: " + tableName);
     }
 
     public void cleanData4AllTables() {
@@ -88,10 +97,10 @@ public class DataCleanupService {
         } catch (InterruptedException e) {
             log.error("Unexpected error occurs:", e);
         }
-        if(hasError.get() || tableLatch.getCount() != 0) {
-            throw new DataCleanupException("Error occurs when delete data in tables");
-        }
         executorService.shutdown();
-        log.info("Cleanup done for all tables." );
+        if(hasError.get() || tableLatch.getCount() != 0) {
+            throw new DataCleanupException("Error occurs when delete data, check log for details.");
+        }
+        log.info("******* Cleanup done for all tables." );
     }
 }
