@@ -1,15 +1,12 @@
 package com.sap.ngom.datamigration.service;
 
 import com.sap.ngom.datamigration.configuration.MyItemWriter;
-import com.sap.ngom.datamigration.exception.BadRequestValidationException;
-import com.sap.ngom.datamigration.exception.BatchJobException;
 import com.sap.ngom.datamigration.exception.SourceTableNotDefinedException;
 import com.sap.ngom.datamigration.listener.BPStepListener;
 import com.sap.ngom.datamigration.listener.JobCompletionNotificationListener;
 import com.sap.ngom.datamigration.processor.CustomItemProcessor;
 import com.sap.ngom.datamigration.util.DBConfigReader;
 import com.sap.ngom.datamigration.util.TenantHelper;
-import org.apache.catalina.connector.Response;
 import org.springframework.batch.core.*;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
@@ -18,7 +15,6 @@ import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.core.repository.JobExecutionAlreadyRunningException;
 import org.springframework.batch.core.repository.JobInstanceAlreadyCompleteException;
-import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.repository.JobRestartException;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.database.JdbcCursorItemReader;
@@ -30,7 +26,6 @@ import org.springframework.stereotype.Service;
 
 import javax.sql.DataSource;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
@@ -163,10 +158,6 @@ public class DataMigrationService {
 
     public void migrationFailedRecordRetry(String tableName, String pkid) {
 
-    }
-
-    private static JobParameters generateJobParams() {
-        return new JobParametersBuilder().addDate("date", new Date()).toJobParameters();
     }
 
 }

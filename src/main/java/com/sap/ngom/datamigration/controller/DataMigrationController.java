@@ -1,15 +1,11 @@
 package com.sap.ngom.datamigration.controller;
 
-import com.sap.ngom.datamigration.model.JobResult;
 import com.sap.ngom.datamigration.service.DataCleanupService;
 import com.sap.ngom.datamigration.service.DataMigrationService;
-import org.springframework.batch.core.BatchStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
-
-import javax.validation.constraints.NotNull;
 
 @RequestMapping(value = "/v1")
 @Controller
