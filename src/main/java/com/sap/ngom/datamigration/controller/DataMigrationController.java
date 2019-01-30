@@ -10,7 +10,6 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
 import javax.validation.constraints.NotNull;
-import java.util.List;
 
 @RequestMapping(value = "/v1")
 @Controller
@@ -23,8 +22,8 @@ public class DataMigrationController {
 
     @PostMapping("/jobs/{tableName}")
     public ResponseEntity<BatchStatus> triggerTableMigration(@PathVariable("tableName")final String tableName,
-            @NotNull @RequestParam String jobParameters) {
-        return ResponseEntity.ok().body(dataMigrationService.triggerOneMigrationJob(tableName, jobParameters));
+            @NotNull @RequestParam String jobParameter) {
+        return ResponseEntity.ok().body(dataMigrationService.triggerOneMigrationJob(tableName, jobParameter));
     }
 
     @GetMapping("/migrateSingleRecord")

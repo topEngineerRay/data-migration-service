@@ -17,6 +17,7 @@ import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.core.repository.JobExecutionAlreadyRunningException;
 import org.springframework.batch.core.repository.JobInstanceAlreadyCompleteException;
+import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.repository.JobRestartException;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.database.JdbcCursorItemReader;
@@ -34,10 +35,10 @@ import java.util.Map;
 @Service
 public class DataMigrationService {
 
-    @Autowired
-    JobLauncher jobLauncher;
-
     private static final int SKIP_LIMIT = 10;
+
+    @Autowired
+    private JobLauncher jobLauncher;
 
     @Autowired
     @Qualifier("sourceDataSource")
@@ -66,13 +67,12 @@ public class DataMigrationService {
     public BatchStatus triggerOneMigrationJob(String tableName, String jobParameter) {
         //we have two different type of jobs: FlowJob and SimpleJob
         tableNameValidation(tableName);
+        String jobName = tableName + "_" + "MigrationJobDynamic";
+        JobParameters jobParameters = getJobParameters(jobParameter, jobName);
         try {
-            String jobName = tableName + "_" + "MigrationJobDynamic";
             List<Step> stepList = new ArrayList<Step>();
             List<String> tenants = tenantHelper.getAllTenants(tableName);
             if (!tenants.isEmpty()) {
-
-                JobParameters jobParameters = getJobParameters(jobParameter, jobName);
 
                 Step step = null;
                 //notice: For test purpose we'd better not migarate all tenants,
