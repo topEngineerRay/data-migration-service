@@ -1,7 +1,9 @@
 package com.sap.ngom.datamigration.controller;
 
+import com.sap.ngom.datamigration.model.DataVerificationResult;
 import com.sap.ngom.datamigration.service.DataCleanupService;
 import com.sap.ngom.datamigration.service.DataMigrationService;
+import com.sap.ngom.datamigration.service.DataVerificationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -15,6 +17,9 @@ public class DataMigrationController {
 
     @Autowired
     DataCleanupService dataCleanupService;
+
+    @Autowired
+    DataVerificationService dataVerificationService;
 
     @PostMapping("/jobs/{tableName}")
     public ResponseEntity triggerTableMigration(@PathVariable("tableName")final String tableName) {
@@ -31,5 +36,10 @@ public class DataMigrationController {
     public ResponseEntity<Void> dataCleanup4AllTables() {
         dataCleanupService.cleanData4AllTables();
         return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/data/verification/{tableName}")
+    public ResponseEntity<DataVerificationResult> migrationTableVerification(@PathVariable("tableName")final String tableName){
+        return ResponseEntity.status(200).body(dataVerificationService.tableMigrationResultVerification(tableName));
     }
 }
