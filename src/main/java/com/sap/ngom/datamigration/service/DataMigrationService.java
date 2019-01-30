@@ -131,7 +131,7 @@ public class DataMigrationService {
         Step tenantSpecificStep = stepBuilderFactory.get(table + "_" + tenant + "_" + "MigrationStepDynamic")
                 .listener(new BPStepListener(tenant))
                 .<Map<String, Object>, Map<String, Object>>chunk(10).faultTolerant().noSkip(Exception.class).skipLimit(SKIP_LIMIT)
-                .reader(itemReader(dataSource, tenant))
+                .reader(itemReader(dataSource, table, tenant))
                 .processor(new CustomItemProcessor())
                 .writer(myItemwriter(detinationDataSource, table, targetNameSpace)).faultTolerant().noSkip(Exception.class).skipLimit(SKIP_LIMIT)
                 .build();
@@ -139,13 +139,12 @@ public class DataMigrationService {
         return tenantSpecificStep;
     }
 
-
-
-    public JdbcCursorItemReader<Map<String, Object>> itemReader(final DataSource dataSource, String tenant) {
+    public JdbcCursorItemReader<Map<String, Object>> itemReader(final DataSource dataSource,String tableName, String tenant) {
         //get bp table data from postgresql
         JdbcCursorItemReader<Map<String, Object>> itemReader = new JdbcCursorItemReader<>();
         itemReader.setDataSource(dataSource);
-        itemReader.setSql("select * from bp b where b.tenant_id ='" + tenant + "'");
+        //need to check if all service have the same name convention
+        itemReader.setSql("select * from "+tableName+ " where tenant_id ='" + tenant + "'");
         itemReader.setRowMapper(new ColumnMapRowMapper());
         return itemReader;
     }
