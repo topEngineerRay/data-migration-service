@@ -9,6 +9,7 @@ import com.sap.ngom.datamigration.listener.JobCompletionNotificationListener;
 import com.sap.ngom.datamigration.processor.CustomItemProcessor;
 import com.sap.ngom.datamigration.util.DBConfigReader;
 import com.sap.ngom.datamigration.util.TenantHelper;
+import org.apache.catalina.connector.Response;
 import org.springframework.batch.core.*;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
@@ -23,6 +24,7 @@ import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.database.JdbcCursorItemReader;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.ColumnMapRowMapper;
 import org.springframework.stereotype.Service;
 
@@ -64,13 +66,12 @@ public class DataMigrationService {
     private DBConfigReader dbConfigReader;
 
 
-    public BatchStatus triggerOneMigrationJob(String tableName) {
+    public ResponseEntity triggerOneMigrationJob(String tableName) {
         //we have two different type of jobs: FlowJob and SimpleJob
         tableNameValidation(tableName);
         String jobName = tableName + "_" + "MigrationJobDynamic";
         String jobParameter = jobName;
         JobParameters jobParameters = getJobParameters(jobParameter, jobName);
-        try {
             List<Step> stepList = new ArrayList<Step>();
             List<String> tenants = tenantHelper.getAllTenants(tableName);
             if (!tenants.isEmpty()) {
@@ -93,23 +94,27 @@ public class DataMigrationService {
                         .listener(jobCompletionNotificationListener).start(stepList.get(0))
                         .build();
                 migrationJob.setSteps(stepList);
-                JobExecution jobExecution =  jobLauncher.run(migrationJob, jobParameters);
-                if(jobExecution.getStatus().toString().equals("FAILED")){
-                    throw new BatchJobException(jobExecution.getAllFailureExceptions().toString());
-                }
-                return jobExecution.getStatus();
+                runJob(migrationJob, jobParameters);
             }
+        return ResponseEntity.ok().build();
+    }
 
-        } catch (JobExecutionAlreadyRunningException e) {
-            throw new BadRequestValidationException(e.getMessage());
-        } catch (JobRestartException e) {
-            e.printStackTrace();
-        } catch (JobInstanceAlreadyCompleteException e) {
-            e.printStackTrace();
-        } catch (JobParametersInvalidException e) {
-            e.printStackTrace();
-        }
-        return BatchStatus.FAILED;
+    public void runJob(SimpleJob job, JobParameters jobParameters){
+        Runnable runnable = () -> {
+            try {
+                JobExecution jobExecution =  jobLauncher.run(job, jobParameters);
+            } catch (JobExecutionAlreadyRunningException e) {
+                e.printStackTrace();
+            } catch (JobRestartException e) {
+                e.printStackTrace();
+            } catch (JobInstanceAlreadyCompleteException e) {
+                e.printStackTrace();
+            } catch (JobParametersInvalidException e) {
+                e.printStackTrace();
+            }
+        };
+        Thread threadRunJob = new Thread(runnable);
+        threadRunJob.start();
     }
 
     private JobParameters getJobParameters(String jobParameter, String jobName) {

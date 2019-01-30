@@ -21,8 +21,8 @@ public class DataMigrationController {
     DataCleanupService dataCleanupService;
 
     @PostMapping("/jobs/{tableName}")
-    public ResponseEntity<BatchStatus> triggerTableMigration(@PathVariable("tableName")final String tableName) {
-        return ResponseEntity.ok().body(dataMigrationService.triggerOneMigrationJob(tableName));
+    public ResponseEntity triggerTableMigration(@PathVariable("tableName")final String tableName) {
+        return dataMigrationService.triggerOneMigrationJob(tableName);
     }
 
     @GetMapping("/migrateSingleRecord")
