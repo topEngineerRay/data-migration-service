@@ -97,7 +97,7 @@ public class DataMigrationService {
     public void runJob(SimpleJob job, JobParameters jobParameters){
         Runnable runnable = () -> {
             try {
-                JobExecution jobExecution =  jobLauncher.run(job, jobParameters);
+                jobLauncher.run(job, jobParameters);
             } catch (JobExecutionAlreadyRunningException e) {
                 e.printStackTrace();
             } catch (JobRestartException e) {
