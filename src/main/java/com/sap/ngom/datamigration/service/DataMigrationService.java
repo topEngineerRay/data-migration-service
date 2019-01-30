@@ -64,10 +64,11 @@ public class DataMigrationService {
     private DBConfigReader dbConfigReader;
 
 
-    public BatchStatus triggerOneMigrationJob(String tableName, String jobParameter) {
+    public BatchStatus triggerOneMigrationJob(String tableName) {
         //we have two different type of jobs: FlowJob and SimpleJob
         tableNameValidation(tableName);
         String jobName = tableName + "_" + "MigrationJobDynamic";
+        String jobParameter = jobName;
         JobParameters jobParameters = getJobParameters(jobParameter, jobName);
         try {
             List<Step> stepList = new ArrayList<Step>();
