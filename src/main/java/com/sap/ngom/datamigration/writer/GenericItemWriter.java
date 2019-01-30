@@ -1,4 +1,4 @@
-package com.sap.ngom.datamigration.configuration;
+package com.sap.ngom.datamigration.writer;
 
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
@@ -8,12 +8,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class MyItemWriter implements ItemWriter<Map<String,Object>> {
-
+public class GenericItemWriter implements ItemWriter<Map<String,Object>> {
     private DataSource dataSource;
     private String table;
     private String nameSpace;
-    public MyItemWriter(DataSource dataSource, String table, String nameSpace) {
+    public GenericItemWriter(DataSource dataSource, String table, String nameSpace) {
         this.dataSource = dataSource;
         this.table = table;
         this.nameSpace = nameSpace;
@@ -30,16 +29,13 @@ public class MyItemWriter implements ItemWriter<Map<String,Object>> {
                 .usingColumns(columns)
                 .withTableName(buildHanaTableName(nameSpace,table));
 
-        list.forEach(row -> {
-            jdbcInsert.execute(row);
-        });
+        jdbcInsert.executeBatch(list.toArray(new Map[0]));
 
     }
 
     private String[] getColumns(List<? extends Map<String, Object>> list) {
         Map map = list.get(0);
         Set<String> set = map.keySet();
-        //Does all the table have the same name convetion of tenant? This require a investigation
         set.remove("tenant_id");
         return set.toArray(new String[set.size()]);
     }

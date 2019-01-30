@@ -21,11 +21,6 @@ public class DataMigrationController {
         return dataMigrationService.triggerOneMigrationJob(tableName);
     }
 
-    @GetMapping("/migrateSingleRecord")
-    public void migrationFailedRecordRetry(@RequestParam final String tableName, @RequestParam final String PKID) {
-        dataMigrationService.migrationFailedRecordRetry(tableName, PKID);
-    }
-
     @PostMapping("/data/cleanup/{tableName}")
     public ResponseEntity<Void> dataCleanup4OneTable(@PathVariable final String tableName) {
         dataCleanupService.cleanData4OneTable(tableName);
