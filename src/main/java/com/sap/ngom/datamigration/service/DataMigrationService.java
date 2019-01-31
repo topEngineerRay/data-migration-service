@@ -82,14 +82,11 @@ public class DataMigrationService {
         List<Step> stepList = new ArrayList<Step>();
         List<String> tenants = tenantHelper.getAllTenants(tableName);
         if (!tenants.isEmpty()) {
-           /* for (String tenant : tenants) {
+            for (String tenant : tenants) {
                 Step step = createOneStep(tenant, tableName);
                 stepList.add(step);
-            }*/
-            for (int i = 0; i < 2; i++) {
-                Step step = createOneStep(tenants.get(i), tableName);
-                stepList.add(step);
             }
+
             SimpleJob migrationJob = (SimpleJob) jobBuilderFactory.get(jobName)
                     .incrementer(new RunIdIncrementer())
                     .listener(jobCompletionNotificationListener).start(stepList.get(0))
