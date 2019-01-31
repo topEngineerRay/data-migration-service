@@ -12,7 +12,6 @@ import org.springframework.batch.core.*;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.job.SimpleJob;
-import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.core.launch.support.SimpleJobLauncher;
 import org.springframework.batch.core.repository.JobExecutionAlreadyRunningException;
@@ -23,7 +22,6 @@ import org.springframework.batch.item.database.JdbcCursorItemReader;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskExecutor;
-import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.ColumnMapRowMapper;
 import org.springframework.stereotype.Service;
 
@@ -75,7 +73,7 @@ public class DataMigrationService {
         jobLauncher.setTaskExecutor(simpleAsyncTaskExecutor);
     }
 
-    public ResponseEntity triggerOneMigrationJob(String tableName) {
+    public void triggerOneMigrationJob(String tableName) {
         tableNameValidation(tableName);
 
         String jobName = tableName + "_" + "MigrationJob";
@@ -106,7 +104,6 @@ public class DataMigrationService {
             }
         }
 
-        return ResponseEntity.ok().build();
     }
 
     private JobParameters getJobParameters(String jobParameter, String jobName) {
@@ -157,11 +154,10 @@ public class DataMigrationService {
         return new JobParametersBuilder().addDate("date", new Date()).toJobParameters();
     }
 
-    public ResponseEntity triggerAllMigrationJobs() {
+    public void triggerAllMigrationJobs() {
         for(String tableName:dbConfigReader.getSourceTableNames()){
             triggerOneMigrationJob(tableName);
         }
-        return ResponseEntity.ok().build();
     }
 
 }

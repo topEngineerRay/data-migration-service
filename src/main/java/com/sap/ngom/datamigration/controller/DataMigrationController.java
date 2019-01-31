@@ -17,13 +17,16 @@ public class DataMigrationController {
     DataCleanupService dataCleanupService;
 
     @PostMapping("/jobs")
-    public ResponseEntity triggerMigration() {
-        return dataMigrationService.triggerAllMigrationJobs();
+    public ResponseEntity triggerMigration()
+    {
+        dataMigrationService.triggerAllMigrationJobs();
+        return ResponseEntity.ok().build();
     }
 
     @PostMapping("/jobs/{tableName}")
     public ResponseEntity triggerTableMigration(@PathVariable("tableName")final String tableName) {
-        return dataMigrationService.triggerOneMigrationJob(tableName);
+        dataMigrationService.triggerOneMigrationJob(tableName);
+        return ResponseEntity.ok().build();
     }
 
     @PostMapping("/data/cleanup/{tableName}")
