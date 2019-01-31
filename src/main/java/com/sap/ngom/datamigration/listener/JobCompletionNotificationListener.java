@@ -26,7 +26,7 @@ public class JobCompletionNotificationListener extends JobExecutionListenerSuppo
         if (jobExecution.getStatus() == BatchStatus.FAILED) {
             log.info("Job fail message: " + jobExecution.getAllFailureExceptions().toString());
         }else if(jobExecution.getStatus() == BatchStatus.COMPLETED){
-            String tableName = jobExecution.getJobInstance().getJobName().substring(0,2);
+            String tableName = jobExecution.getJobInstance().getJobName().substring(0,jobExecution.getJobInstance().getJobName().indexOf("_"));
             Integer originalParameter = batchJobParameterHolder.getParameter(tableName);
             batchJobParameterHolder.setParameter(tableName,++originalParameter);
         }
