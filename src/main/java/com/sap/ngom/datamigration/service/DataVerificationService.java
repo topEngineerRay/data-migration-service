@@ -2,10 +2,10 @@ package com.sap.ngom.datamigration.service;
 
 import com.sap.ngom.datamigration.configuration.hana.TenantThreadLocalHolder;
 import com.sap.ngom.datamigration.model.*;
-import com.sap.ngom.datamigration.model.dataVerification.CountResult;
-import com.sap.ngom.datamigration.model.dataVerification.Detail;
-import com.sap.ngom.datamigration.model.dataVerification.TableResult;
-import com.sap.ngom.datamigration.model.dataVerification.TenantResult;
+import com.sap.ngom.datamigration.model.verification.CountResult;
+import com.sap.ngom.datamigration.model.verification.Detail;
+import com.sap.ngom.datamigration.model.verification.TableResult;
+import com.sap.ngom.datamigration.model.verification.TenantResult;
 import com.sap.ngom.datamigration.util.DBConfigReader;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;

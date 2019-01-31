@@ -1,6 +1,5 @@
-package com.sap.ngom.datamigration.model.dataVerification;
+package com.sap.ngom.datamigration.model.verification;
 
-import com.sap.ngom.datamigration.model.dataVerification.TableResult;
 import lombok.*;
 
 import java.util.List;

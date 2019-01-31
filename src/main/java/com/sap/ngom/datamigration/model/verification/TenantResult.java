@@ -1,6 +1,5 @@
-package com.sap.ngom.datamigration.model.dataVerification;
+package com.sap.ngom.datamigration.model.verification;
 
-import com.sap.ngom.datamigration.model.dataVerification.CountResult;
 import lombok.*;
 
 @Getter
