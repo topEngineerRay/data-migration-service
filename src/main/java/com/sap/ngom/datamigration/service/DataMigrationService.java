@@ -1,5 +1,6 @@
 package com.sap.ngom.datamigration.service;
 
+import com.sap.ngom.datamigration.exception.RunJobException;
 import com.sap.ngom.datamigration.exception.SourceTableNotDefinedException;
 import com.sap.ngom.datamigration.listener.BPStepListener;
 import com.sap.ngom.datamigration.listener.JobCompletionNotificationListener;
@@ -11,6 +12,7 @@ import org.springframework.batch.core.*;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
 import org.springframework.batch.core.job.SimpleJob;
+import org.springframework.batch.core.launch.JobLauncher;
 import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.core.launch.support.SimpleJobLauncher;
 import org.springframework.batch.core.repository.JobExecutionAlreadyRunningException;
@@ -67,6 +69,7 @@ public class DataMigrationService {
     @Autowired
     private TaskExecutor simpleAsyncTaskExecutor;
 
+
     @PostConstruct
     void postConstruct() {
         jobLauncher.setTaskExecutor(simpleAsyncTaskExecutor);
@@ -79,11 +82,14 @@ public class DataMigrationService {
         List<Step> stepList = new ArrayList<Step>();
         List<String> tenants = tenantHelper.getAllTenants(tableName);
         if (!tenants.isEmpty()) {
-            for (String tenant : tenants) {
+           /* for (String tenant : tenants) {
                 Step step = createOneStep(tenant, tableName);
                 stepList.add(step);
+            }*/
+            for (int i = 0; i < 2; i++) {
+                Step step = createOneStep(tenants.get(i), tableName);
+                stepList.add(step);
             }
-
             SimpleJob migrationJob = (SimpleJob) jobBuilderFactory.get(jobName)
                     .incrementer(new RunIdIncrementer())
                     .listener(jobCompletionNotificationListener).start(stepList.get(0))
@@ -93,13 +99,13 @@ public class DataMigrationService {
             try {
                 jobLauncher.run(migrationJob, generateJobParams());
             } catch (JobExecutionAlreadyRunningException e) {
-                e.printStackTrace();
+                throw new RunJobException(e.getMessage());
             } catch (JobRestartException e) {
-                e.printStackTrace();
+                throw new RunJobException(e.getMessage());
             } catch (JobInstanceAlreadyCompleteException e) {
-                e.printStackTrace();
+                throw new RunJobException(e.getMessage());
             } catch (JobParametersInvalidException e) {
-                e.printStackTrace();
+                throw new RunJobException(e.getMessage());
             }
         }
 
@@ -153,4 +159,12 @@ public class DataMigrationService {
     private static JobParameters generateJobParams() {
         return new JobParametersBuilder().addDate("date", new Date()).toJobParameters();
     }
+
+    public ResponseEntity triggerAllMigrationJobs() {
+        for(String tableName:dbConfigReader.getSourceTableNames()){
+            triggerOneMigrationJob(tableName);
+        }
+        return ResponseEntity.ok().build();
+    }
+
 }

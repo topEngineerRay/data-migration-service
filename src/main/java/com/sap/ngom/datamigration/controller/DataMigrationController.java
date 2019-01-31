@@ -7,7 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
-@RequestMapping(value = "/v1")
+@RequestMapping
 @Controller
 public class DataMigrationController {
 
@@ -15,6 +15,11 @@ public class DataMigrationController {
 
     @Autowired
     DataCleanupService dataCleanupService;
+
+    @PostMapping("/jobs")
+    public ResponseEntity triggerMigration() {
+        return dataMigrationService.triggerAllMigrationJobs();
+    }
 
     @PostMapping("/jobs/{tableName}")
     public ResponseEntity triggerTableMigration(@PathVariable("tableName")final String tableName) {
