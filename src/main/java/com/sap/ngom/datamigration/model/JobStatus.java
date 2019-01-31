@@ -8,5 +8,5 @@ import org.springframework.batch.core.BatchStatus;
 @Data
 public class JobStatus {
     private String table;
-    private BatchStatus jobStatus;
+    private String jobStatus;
 }

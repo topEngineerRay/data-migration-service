@@ -1,14 +1,14 @@
 package com.sap.ngom.datamigration.controller;
 
-import com.sap.ngom.datamigration.model.JobResult;
 import com.sap.ngom.datamigration.model.JobStatus;
 import com.sap.ngom.datamigration.service.DataCleanupService;
 import com.sap.ngom.datamigration.service.DataMigrationService;
-import org.springframework.batch.core.BatchStatus;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 
@@ -21,33 +21,27 @@ public class DataMigrationController {
     @Autowired
     DataCleanupService dataCleanupService;
 
-    //get job status
-    @GetMapping("/jobs/allJobStatus")
-    public List<BatchStatus> getJobStatus(@PathVariable("serviceName")final String serviceName) {
-       return dataMigrationService.getAllJobsStatus(serviceName);
+    @Bean
+    public RestTemplate restTemplate(){
+         RestTemplate restTemplate = new RestTemplate();
+         return restTemplate;
     }
 
-    //get job status
     @GetMapping("/jobs/{tableName}")
     @ResponseBody
     public JobStatus getOneJobStatus(@PathVariable("tableName")final String tableName) {
         return dataMigrationService.getJobsStatus(tableName);
     }
 
-    @GetMapping("/tiggerAllJob/{serviceName}")
-    public void triggerBpMigration(@PathVariable("serviceName")final String serviceName) {
-        dataMigrationService.triggerBpMigration(serviceName);
+    @GetMapping("/jobs")
+    @ResponseBody
+    public List<JobStatus> getAllJobStatus() {
+        return dataMigrationService.getAllJobsStatus();
     }
 
-    @GetMapping("/migrationOneJob/{serviceName}/{migrationJobName}")
-    public void migrationJobRetry(@PathVariable("serviceName")final String serviceName,
-                                  @PathVariable("migrationJobName")final String jobName) {
-        dataMigrationService.triggerOneMigrationJob(jobName);
-    }
-
-    @GetMapping("/migrateSingleRecord")
-    public void migrationFailedRecordRetry(@RequestParam final String tableName, @RequestParam final String PKID) {
-        dataMigrationService.migrationFailedRecordRetry(tableName, PKID);
+    @PostMapping("/jobs/{tableName}")
+    public ResponseEntity triggerTableMigration(@PathVariable("tableName")final String tableName) {
+        return dataMigrationService.triggerOneMigrationJob(tableName);
     }
 
     @PostMapping("/data/cleanup/{tableName}")
@@ -61,4 +55,9 @@ public class DataMigrationController {
         dataCleanupService.cleanData4AllTables();
         return ResponseEntity.ok().build();
     }
+
+    /*@PostMapping("/container/cleanup")
+    public ResponseEntity<Void> clearHDIContainers(){
+
+    }*/
 }
