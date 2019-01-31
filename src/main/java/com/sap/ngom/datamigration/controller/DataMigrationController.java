@@ -43,7 +43,7 @@ public class DataMigrationController {
         ResponseMessage responseMessage = new ResponseMessage();
         responseMessage.setStatus(Status.SUCCESS);
         responseMessage.setMessage(TRIGGER_DATA_MIGRATION_SUCCESSFULLY);
-        return ResponseEntity.ok().body(TRIGGER_DATA_MIGRATION_SUCCESSFULLY);
+        return ResponseEntity.ok().body(responseMessage);
     }
 
     @PostMapping("/data/cleanup/{tableName}")
