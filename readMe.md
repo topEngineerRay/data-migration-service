@@ -9,7 +9,7 @@ This data migration service is designed as a reuse service to do data migration 
 
 ### Prerequisites
 
-Make sure the following dependencies of the service (e.g. business-partner) your want to do data migration available:
+Make sure the following dependencies of the service (e.g. business-partner) your want to do data migration are ready:
 * postgresql db installed on local host
 * hdi-deployer app is deployed on SCP
 * managed-hana backing service is created on SCP
@@ -38,7 +38,7 @@ In this service, there are some endpoints provided to conduct a data migration, 
 | Monitoring | GET /jobs/{tableName} | Check data migration job status for one specified table. |
 | Cleanup | POST /data/cleanup | Trigger clean up data in target database for all the configured tables. |
 | Cleanup | POST /data/cleanup/{tableName} | Trigger clean up data in target db for specifed table. |
-| Verification | POST /data/verification | Trigger data verification between source db and target db. |
+| Verification | POST /data/verification | Trigger data verification for all the configured tables between source db and target db. |
 | Verification | POST /data/verification/{tableName} | Trigger data verification for one specifed table between source db and target db. |
 
 For detail usage, please check wiki.
