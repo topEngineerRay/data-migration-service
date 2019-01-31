@@ -1,5 +1,6 @@
 package com.sap.ngom.datamigration.service;
 
+import com.sap.ngom.datamigration.configuration.BatchJobParameterHolder;
 import com.sap.ngom.datamigration.listener.BPStepListener;
 import com.sap.ngom.datamigration.listener.JobCompletionNotificationListener;
 import com.sap.ngom.datamigration.model.JobStatus;
@@ -16,6 +17,7 @@ import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.core.launch.support.SimpleJobLauncher;
 import org.springframework.batch.core.repository.JobExecutionAlreadyRunningException;
 import org.springframework.batch.core.repository.JobInstanceAlreadyCompleteException;
+import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.repository.JobRestartException;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.database.JdbcCursorItemReader;
@@ -30,10 +32,7 @@ import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
 import javax.sql.DataSource;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Service
 public class DataMigrationService {
@@ -65,10 +64,16 @@ public class DataMigrationService {
     TenantHelper tenantHelper;
 
     @Autowired
+    JobRepository jobRepository;
+
+    @Autowired
     private DBConfigReader dbConfigReader;
 
     @Autowired
     private TaskExecutor simpleAsyncTaskExecutor;
+
+    @Autowired
+    private BatchJobParameterHolder batchJobParameterHolder;
 
     @Autowired
     @Qualifier("batchDataJDBCTemplate")
@@ -81,8 +86,12 @@ public class DataMigrationService {
         jobLauncher.setTaskExecutor(simpleAsyncTaskExecutor);
     }
 
+
     public ResponseEntity triggerOneMigrationJob(String tableName) {
         tableNameValidation(tableName);
+        if(isJobRunning(tableName)){
+            return ResponseEntity.badRequest().body("This job can't executed, because currently another job is running for this table");
+        }
 
         String jobName = tableName + JOB_NAME_SUFFIX;
         List<Step> stepList = new ArrayList<Step>();
@@ -99,9 +108,8 @@ public class DataMigrationService {
                     .build();
             migrationJob.setSteps(stepList);
 
-
             try {
-                jobLauncher.run(migrationJob, generateJobParams());
+                jobLauncher.run(migrationJob, getJobParameters(tableName));
             } catch (JobExecutionAlreadyRunningException e) {
                 e.printStackTrace();
             } catch (JobRestartException e) {
@@ -114,6 +122,21 @@ public class DataMigrationService {
         }
 
         return ResponseEntity.ok().build();
+    }
+
+    private JobParameters getJobParameters(String tableName){
+        JobParametersBuilder jobBuilder = new JobParametersBuilder();
+        jobBuilder.addString(tableName,batchJobParameterHolder.getParameter(tableName).toString());
+        return jobBuilder.toJobParameters();
+    }
+
+    private boolean isJobRunning(String tableName){
+        JobExecution jobExecution = jobRepository.getLastJobExecution(tableName+JOB_NAME_SUFFIX, getJobParameters(tableName));
+        if(null == jobExecution){
+            return false;
+        }
+        BatchStatus batchStatus = jobExecution.getStatus();
+        return batchStatus.equals(BatchStatus.STARTED) || batchStatus.equals(BatchStatus.STARTING) || batchStatus.equals(BatchStatus.UNKNOWN);
     }
 
     private JobParameters getJobParameters(String jobParameter, String jobName) {
