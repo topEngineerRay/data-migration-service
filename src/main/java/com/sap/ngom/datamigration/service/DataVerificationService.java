@@ -41,7 +41,7 @@ public class DataVerificationService {
         ResponseMessage responseMessage = new ResponseMessage();
         TableResult tableResult = verifyOneTableResult(tableName);
 
-        if (tableResult.getTenantVaildFlag()) {
+        if (tableResult.getDataConsistent()) {
             responseMessage.setStatus(Status.SUCCESS);
             responseMessage.setMessage("Data CONSISTENT between source and target after verification.");
             responseMessage.setDetail(null);
@@ -50,7 +50,6 @@ public class DataVerificationService {
             responseMessage.setMessage("Data INCONSISTENT between source and target after verification.");
 
             List<TableResult> tablesResultList = new ArrayList<>();
-            tableResult.setTenantVaildFlag(null);
             tablesResultList.add(tableResult);
             Detail detail = new Detail();
             detail.setTables(tablesResultList);
@@ -61,32 +60,30 @@ public class DataVerificationService {
     }
 
     public ResponseMessage dataVerificationForAllTable() {
-        List<String> tableList = dbConfigReader.getSourceTableNames();
 
+        boolean isTableDataConsistent = true;
+        List<String> tableList = dbConfigReader.getSourceTableNames();
         ResponseMessage responseMessage = new ResponseMessage();
-        Detail detail = new Detail();
         List<TableResult> tablesResultList = new ArrayList<>();
 
-        detail.setTableValidFlag(true);
         for (String tableName : tableList) {
             TableResult tableResult = verifyOneTableResult(tableName);
-            if(!tableResult.getTenantVaildFlag()){
-                detail.setTableValidFlag(false);
-                tableResult.setTenantVaildFlag(null);
+            if(!tableResult.getDataConsistent()){
+                isTableDataConsistent = false;
                 tablesResultList.add(tableResult);
             }
 
         }
 
-        if(detail.getTableValidFlag()){
+        if(isTableDataConsistent){
             responseMessage.setStatus(Status.SUCCESS);
             responseMessage.setMessage("Data CONSISTENT between source and target after verification.");
             responseMessage.setDetail(null);
-
         } else{
             responseMessage.setStatus(Status.FAILURE);
             responseMessage.setMessage("Data INCONSISTENT between source and target after verification.");
-            detail.setTableValidFlag(null);
+
+            Detail detail = new Detail();
             detail.setTables(tablesResultList);
             responseMessage.setDetail(detail);
         }
@@ -118,13 +115,13 @@ public class DataVerificationService {
         });
 
         List<TenantResult> tenantsResultList = new ArrayList<>();
-        tableResult.setTenantVaildFlag(true);
+        tableResult.setDataConsistent(true);
         for(String tenant : queryResult.keySet()){
             TenantThreadLocalHolder.setTenant(tenant);
             JdbcTemplate hanaJdbcTemplate = new JdbcTemplate(targetDataSource);
             targetTenantCount = hanaJdbcTemplate.queryForObject("select count(*) from " + "\"" + targetTableName + "\"",Integer.class);
             if(targetTenantCount != queryResult.get(tenant)){
-                tableResult.setTenantVaildFlag(false);
+                tableResult.setDataConsistent(false);
                 CountResult countResult = new CountResult();
                 countResult.setSourceCount(queryResult.get(tenant));
                 countResult.setTargetCount(targetTenantCount);
@@ -140,7 +137,7 @@ public class DataVerificationService {
 
         log.info("Data verification is completed for table: " + tableName);
 
-        if(!tableResult.getTenantVaildFlag()){
+        if(!tableResult.getDataConsistent()){
             tableResult.setTenants(tenantsResultList);
             tableResult.setTable(tableName);
         }

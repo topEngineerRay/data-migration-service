@@ -16,5 +16,5 @@ import java.util.List;
 public class TableResult {
     private String table;
     private List<TenantResult> tenants;
-    private Boolean tenantVaildFlag;
+    private Boolean dataConsistent;
 }
