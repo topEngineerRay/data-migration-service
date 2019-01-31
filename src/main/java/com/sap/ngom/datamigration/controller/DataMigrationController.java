@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 @Controller
 public class DataMigrationController {
 
+    public static final String TRIGGER_DATA_MIGRATION_SUCCESSFULLY = "Trigger data migration successfully.";
     @Autowired DataMigrationService dataMigrationService;
 
     @Autowired
@@ -28,13 +29,21 @@ public class DataMigrationController {
     public ResponseEntity triggerMigration()
     {
         dataMigrationService.triggerAllMigrationJobs();
-        return ResponseEntity.ok().build();
+
+        ResponseMessage responseMessage = new ResponseMessage();
+        responseMessage.setStatus(Status.SUCCESS);
+        responseMessage.setMessage(TRIGGER_DATA_MIGRATION_SUCCESSFULLY);
+        return ResponseEntity.ok().body(responseMessage);
     }
 
     @PostMapping("/jobs/{tableName}")
     public ResponseEntity triggerTableMigration(@PathVariable("tableName")final String tableName) {
         dataMigrationService.triggerOneMigrationJob(tableName);
-        return ResponseEntity.ok().build();
+
+        ResponseMessage responseMessage = new ResponseMessage();
+        responseMessage.setStatus(Status.SUCCESS);
+        responseMessage.setMessage(TRIGGER_DATA_MIGRATION_SUCCESSFULLY);
+        return ResponseEntity.ok().body(responseMessage);
     }
 
     @PostMapping("/data/cleanup/{tableName}")
