@@ -2,7 +2,9 @@ package com.sap.ngom.datamigration.controller;
 
 import com.sap.ngom.datamigration.service.DataCleanupService;
 import com.sap.ngom.datamigration.service.DataMigrationService;
+import com.sap.ngom.datamigration.service.ManagedInstanceService;
 import com.sap.ngom.datamigration.util.ResponseMessage;
+import com.sap.xsa.core.instancemanager.client.ManagedServiceInstance;
 import org.springframework.batch.core.BatchStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -17,6 +19,9 @@ public class DataMigrationController {
 
     @Autowired
     DataCleanupService dataCleanupService;
+
+    @Autowired
+    ManagedInstanceService managedInstanceService;
 
     @PostMapping("/jobs/{tableName}")
     public ResponseEntity triggerTableMigration(@PathVariable("tableName")final String tableName) {
@@ -40,5 +45,15 @@ public class DataMigrationController {
         responseMessage.setStatus("SUCCESS");
         responseMessage.setMessage("Data cleanup successfully done for all the tables.");
         return ResponseEntity.ok().body(responseMessage);
+    }
+
+    @PostMapping("/managed-instances/cleanup")
+    public ResponseEntity<Void> managedInstancesClear() {
+        try {
+            managedInstanceService.deleteAll();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return ResponseEntity.ok().build();
     }
 }
