@@ -36,7 +36,7 @@ import java.util.Map;
 public class DataMigrationService {
 
     private static final int SKIP_LIMIT = 10;
-    public static final int CHUNK_SIZE = 10;
+    public static final int CHUNK_SIZE = 500;
 
     @Autowired
     private SimpleJobLauncher jobLauncher;
