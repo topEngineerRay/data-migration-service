@@ -1,5 +1,6 @@
 package com.sap.ngom.datamigration.service;
 
+import com.sap.ngom.datamigration.exception.RunJobException;
 import com.sap.ngom.datamigration.exception.SourceTableNotDefinedException;
 import com.sap.ngom.datamigration.listener.BPStepListener;
 import com.sap.ngom.datamigration.listener.JobCompletionNotificationListener;
@@ -21,7 +22,6 @@ import org.springframework.batch.item.database.JdbcCursorItemReader;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskExecutor;
-import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.ColumnMapRowMapper;
 import org.springframework.stereotype.Service;
 
@@ -67,12 +67,13 @@ public class DataMigrationService {
     @Autowired
     private TaskExecutor simpleAsyncTaskExecutor;
 
+
     @PostConstruct
     void postConstruct() {
         jobLauncher.setTaskExecutor(simpleAsyncTaskExecutor);
     }
 
-    public ResponseEntity triggerOneMigrationJob(String tableName) {
+    public void triggerOneMigrationJob(String tableName) {
         tableNameValidation(tableName);
 
         String jobName = tableName + "_" + "MigrationJob";
@@ -93,17 +94,16 @@ public class DataMigrationService {
             try {
                 jobLauncher.run(migrationJob, generateJobParams());
             } catch (JobExecutionAlreadyRunningException e) {
-                e.printStackTrace();
+                throw new RunJobException(e.getMessage());
             } catch (JobRestartException e) {
-                e.printStackTrace();
+                throw new RunJobException(e.getMessage());
             } catch (JobInstanceAlreadyCompleteException e) {
-                e.printStackTrace();
+                throw new RunJobException(e.getMessage());
             } catch (JobParametersInvalidException e) {
-                e.printStackTrace();
+                throw new RunJobException(e.getMessage());
             }
         }
 
-        return ResponseEntity.ok().build();
     }
 
     private JobParameters getJobParameters(String jobParameter, String jobName) {
@@ -153,4 +153,11 @@ public class DataMigrationService {
     private static JobParameters generateJobParams() {
         return new JobParametersBuilder().addDate("date", new Date()).toJobParameters();
     }
+
+    public void triggerAllMigrationJobs() {
+        for(String tableName:dbConfigReader.getSourceTableNames()){
+            triggerOneMigrationJob(tableName);
+        }
+    }
+
 }
