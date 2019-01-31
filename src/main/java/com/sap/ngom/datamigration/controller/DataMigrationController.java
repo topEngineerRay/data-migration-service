@@ -1,9 +1,11 @@
 package com.sap.ngom.datamigration.controller;
 
+import com.sap.ngom.datamigration.model.ResponseMessage;
+import com.sap.ngom.datamigration.model.Status;
 import com.sap.ngom.datamigration.service.DataCleanupService;
 import com.sap.ngom.datamigration.service.DataMigrationService;
-import com.sap.ngom.datamigration.util.ResponseMessage;
-import org.springframework.batch.core.BatchStatus;
+import com.sap.ngom.datamigration.service.DataVerificationService;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -17,6 +19,10 @@ public class DataMigrationController {
 
     @Autowired
     DataCleanupService dataCleanupService;
+
+
+    @Autowired
+    DataVerificationService dataVerificationService;
 
     @PostMapping("/jobs")
     public ResponseEntity triggerMigration()
@@ -36,7 +42,7 @@ public class DataMigrationController {
         dataCleanupService.cleanData4OneTable(tableName);
 
         ResponseMessage responseMessage = new ResponseMessage();
-        responseMessage.setStatus("SUCCESS");
+        responseMessage.setStatus(Status.SUCCESS);
         responseMessage.setMessage("Data cleanup successfully done for the table: " + tableName + ".");
         return ResponseEntity.ok().body(responseMessage);
     }
@@ -45,8 +51,13 @@ public class DataMigrationController {
     public ResponseEntity<ResponseMessage> dataCleanup4AllTables() {
         dataCleanupService.cleanData4AllTables();
         ResponseMessage responseMessage = new ResponseMessage();
-        responseMessage.setStatus("SUCCESS");
+        responseMessage.setStatus(Status.SUCCESS);
         responseMessage.setMessage("Data cleanup successfully done for all the tables.");
         return ResponseEntity.ok().body(responseMessage);
+    }
+
+    @PostMapping("/data/verification/{tableName}")
+    public ResponseEntity<ResponseMessage> migrationTableVerification(@PathVariable("tableName")final String tableName){
+        return ResponseEntity.status(200).body(dataVerificationService.tableMigrationResultVerification(tableName));
     }
 }
