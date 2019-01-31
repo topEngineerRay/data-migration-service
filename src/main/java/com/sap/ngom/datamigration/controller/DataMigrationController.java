@@ -56,8 +56,4 @@ public class DataMigrationController {
         return ResponseEntity.ok().build();
     }
 
-    /*@PostMapping("/container/cleanup")
-    public ResponseEntity<Void> clearHDIContainers(){
-
-    }*/
 }
