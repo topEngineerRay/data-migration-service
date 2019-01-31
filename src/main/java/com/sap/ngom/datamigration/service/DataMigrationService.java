@@ -71,6 +71,7 @@ public class DataMigrationService {
     private TaskExecutor simpleAsyncTaskExecutor;
 
     @Autowired
+    @Qualifier("batchDataJDBCTemplate")
     private JdbcTemplate sourcJdbcTemplate;
 
     private static String JOB_NAME_SUFFIX = "_MigrationJob";
@@ -165,11 +166,11 @@ public class DataMigrationService {
 
 
     public JobStatus getJobsStatus(String tableName) {
-            String jobName = tableName + JOB_NAME_SUFFIX;
-            tableNameValidation(tableName);
-            String jobStatus = getLastExecutionStatus(jobName);
-            return JobStatus.builder().table(tableName).jobStatus(jobStatus).build();
+        tableNameValidation(tableName);
 
+        String jobName = tableName + JOB_NAME_SUFFIX;
+        String jobStatus = getLastExecutionStatus(jobName);
+        return JobStatus.builder().table(tableName).jobStatus(jobStatus).build();
     }
 
     private String getLastExecutionStatus (String jobName){
