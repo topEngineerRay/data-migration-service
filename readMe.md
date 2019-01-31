@@ -1,29 +1,47 @@
-# Description
-The target of this service is to provide apis to read data from postgresql and insert into hanaDB
+# data-migration-service
 
-# How to run this current POC on local
+This data migration service is designed as a reuse service to do data migration from postgresql to HANA as part of Move2HANA.
 
-Step1:
-Add VCAP_SERVICES to specify the managed-hana information as the run arguments
 
-Step2:
-Set the VM -options to: -Dspring.profiles.active=postgres
+# How to Run
 
-Then go to the application-postgresql.properties, update below postgresql properties as yours:
-spring.datasource.jdbc-url=jdbc:postgresql://localhost:5432/dbname
-spring.datasource.username= username
-spring.datasource.password= pwd
+## Run it Locally
 
-Step3:
-change the code in the Class BatchConfiguration.java, update the method:JdbcPagingItemReader
-update the tenant in this line: provider.setWhereClause("where tenant_id='ray'"); to provider.setWhereClause("where tenant_id='yourtenant'");
+### Prerequisites
 
-Step4:
-As we already have the hdideployer in kfp test space, just run DataMigration.java as how to run other spring boot application
+Make sure the following dependencies of the service (e.g. business-partner) your want to do data migration available:
+* postgresql db installed on local host
+* hdi-deployer app is deployed on SCP
+* managed-hana backing service is created on SCP
 
-Step5:
-trigger migration job by api, in this poc, we can trigger migration for bp table with the below url in postman
-{{url}}/v1/migrationOneJob/bpservice/bpMigrationJob
+Prepare some data in postgresql database.
 
-Step6:
-Go to hana db to manually verify the results.
+### Run Application
+
+1. Add VCAP_SERVICES environment variable to specify the managed-hana information.
+2. Specify spring profile.
+3. Go to the main class DataMigration run as java application.
+4. Test data migration by call endpoints provided.
+
+## Run it on SCP
+
+
+
+# Endpoints
+In this service, there are some endpoints provided to conduct a data migration, including triggering data migration, data verification etc.
+
+|Category|Endpoint|Description|
+|:-------------|:-------------|:-------------|
+| Trigger | POST /jobs | Trigger data migration action for all the configured tables. |
+| Trigger | POST /jobs/{tableName} | Trigger data migration action for one specified table. |
+| Monitoring | GET /jobs | Check data migration job status for all the configured tables. |
+| Monitoring | GET /jobs/{tableName} | Check data migration job status for one specified table. |
+| Cleanup | POST /data/cleanup | Trigger clean up data in target database for all the configured tables. |
+| Cleanup | POST /data/cleanup/{tableName} | Trigger clean up data in target db for specifed table. |
+| Verification | POST /data/verification | Trigger data verification between source db and target db. |
+| Verification | POST /data/verification/{tableName} | Trigger data verification for one specifed table between source db and target db. |
+
+For detail usage, please check wiki.
+
+# References
+* Spring Batch: https://spring.io/projects/spring-batch
