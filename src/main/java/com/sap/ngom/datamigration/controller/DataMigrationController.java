@@ -3,7 +3,7 @@ package com.sap.ngom.datamigration.controller;
 import com.sap.ngom.datamigration.model.JobResult;
 import com.sap.ngom.datamigration.service.DataCleanupService;
 import com.sap.ngom.datamigration.service.DataMigrationService;
-import com.sap.ngom.datamigration.util.MessageBuilder;
+import com.sap.ngom.datamigration.util.ResponseMessage;
 import org.springframework.batch.core.BatchStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -51,21 +51,21 @@ public class DataMigrationController {
     }
 
     @PostMapping("/data/cleanup/{tableName}")
-    public ResponseEntity<MessageBuilder> dataCleanup4OneTable(@PathVariable final String tableName) {
+    public ResponseEntity<ResponseMessage> dataCleanup4OneTable(@PathVariable final String tableName) {
         dataCleanupService.cleanData4OneTable(tableName);
 
-        MessageBuilder messageBuilder = new MessageBuilder();
-        messageBuilder.setStatus("SUCCESS");
-        messageBuilder.setMessage("Data cleanup successfully done for the table: " + tableName + ".");
-        return ResponseEntity.ok().body(messageBuilder);
+        ResponseMessage responseMessage = new ResponseMessage();
+        responseMessage.setStatus("SUCCESS");
+        responseMessage.setMessage("Data cleanup successfully done for the table: " + tableName + ".");
+        return ResponseEntity.ok().body(responseMessage);
     }
 
     @PostMapping("/data/cleanup")
-    public ResponseEntity<MessageBuilder> dataCleanup4AllTables() {
+    public ResponseEntity<ResponseMessage> dataCleanup4AllTables() {
         dataCleanupService.cleanData4AllTables();
-        MessageBuilder messageBuilder = new MessageBuilder();
-        messageBuilder.setStatus("SUCCESS");
-        messageBuilder.setMessage("Data cleanup successfully done for all the tables.");
-        return ResponseEntity.ok().body(messageBuilder);
+        ResponseMessage responseMessage = new ResponseMessage();
+        responseMessage.setStatus("SUCCESS");
+        responseMessage.setMessage("Data cleanup successfully done for all the tables.");
+        return ResponseEntity.ok().body(responseMessage);
     }
 }

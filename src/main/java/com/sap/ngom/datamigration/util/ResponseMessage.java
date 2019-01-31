@@ -1,6 +1,6 @@
 package com.sap.ngom.datamigration.util;
 
-public class MessageBuilder {
+public class ResponseMessage {
     private String status;
     private String message;
 
