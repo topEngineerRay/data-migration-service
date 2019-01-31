@@ -53,9 +53,10 @@ public class ManagedInstanceService {
             });
         }
 
-        if(!tenantLatch.await(180, TimeUnit.SECONDS)) {  // wait until latch counted down to 0
-            log.info("Count down when time out: {}", tenantLatch.getCount());
-        }
+//        if(!tenantLatch.await(180, TimeUnit.SECONDS)) {  // wait until latch counted down to 0
+//            log.info("Count down when time out: {}", tenantLatch.getCount());
+//        }
+        tenantLatch.await();
         Long endTimestamp = System.currentTimeMillis();
 
         log.info("Delete all takes Time: {}", (endTimestamp - startTimestamp));

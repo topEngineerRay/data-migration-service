@@ -2,10 +2,7 @@ package com.sap.ngom.datamigration.controller;
 
 import com.sap.ngom.datamigration.model.ResponseMessage;
 import com.sap.ngom.datamigration.model.Status;
-import com.sap.ngom.datamigration.service.DataCleanupService;
-import com.sap.ngom.datamigration.service.DataMigrationService;
-import com.sap.ngom.datamigration.service.ManagedInstanceService;
-import com.sap.ngom.datamigration.service.DataVerificationService;
+import com.sap.ngom.datamigration.service.*;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -26,6 +23,9 @@ public class DataMigrationController {
 
     @Autowired
     DataVerificationService dataVerificationService;
+
+    @Autowired
+    InitializerService initializerService;
 
     @PostMapping("/jobs")
     public ResponseEntity triggerMigration()
@@ -73,4 +73,26 @@ public class DataMigrationController {
     public ResponseEntity<ResponseMessage> migrationTableVerification(@PathVariable("tableName")final String tableName){
         return ResponseEntity.status(200).body(dataVerificationService.tableMigrationResultVerification(tableName));
     }
+
+    @PostMapping("/initialization")
+    public ResponseEntity<Void> tableInitializeAll() {
+        try {
+            initializerService.initialize4AllTables();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/initialization/{tableName}")
+    public ResponseEntity<Void> tableInitializeOne(@PathVariable("tableName")final String tableName) {
+        try {
+            initializerService.initialize4OneTable(tableName);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return ResponseEntity.ok().build();
+    }
+
+
 }
