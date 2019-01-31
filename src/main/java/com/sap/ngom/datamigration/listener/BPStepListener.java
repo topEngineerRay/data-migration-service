@@ -5,7 +5,6 @@ import org.springframework.batch.core.ExitStatus;
 import org.springframework.batch.core.StepExecution;
 import org.springframework.batch.core.StepExecutionListener;
 
-//@Component("BPStepListener")
 public class BPStepListener implements StepExecutionListener {
     private String tenantId;
     public BPStepListener(String tenantId){

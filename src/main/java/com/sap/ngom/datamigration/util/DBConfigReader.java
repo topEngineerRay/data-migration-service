@@ -35,6 +35,9 @@ public class DBConfigReader {
         return isNameSpaceSpecified() ? targetTableNameSpace + "." + sourceTableName : sourceTableName;
     }
 
+    public String getTargetNameSpace(){
+        return targetTableNameSpace;
+    }
     private boolean isNameSpaceSpecified() {
         return targetTableNameSpace != null && !targetTableNameSpace.isEmpty();
     }
