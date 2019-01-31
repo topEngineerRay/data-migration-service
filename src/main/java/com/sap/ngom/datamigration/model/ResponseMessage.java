@@ -3,6 +3,7 @@ package com.sap.ngom.datamigration.model;
 
 import lombok.*;
 
+import java.util.List;
 import java.util.Map;
 
 @Getter
@@ -10,6 +11,10 @@ import java.util.Map;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class TableResult {
-    private Map<String,TenantResult> tenants;
+public class ResponseMessage {
+
+    private Status status;
+    private String message;
+    private Object detail;
+
 }

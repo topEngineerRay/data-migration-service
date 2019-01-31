@@ -1,4 +1,4 @@
-package com.sap.ngom.datamigration.model;
+package com.sap.ngom.datamigration.model.dataVerification;
 
 import lombok.*;
 
@@ -7,7 +7,7 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class TenantResult {
+public class CountResult {
     private int sourceCount;
     private int targetCount;
 }
