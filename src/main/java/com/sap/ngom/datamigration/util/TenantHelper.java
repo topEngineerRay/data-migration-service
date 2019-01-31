@@ -10,7 +10,7 @@ import javax.sql.DataSource;
 import java.util.List;
 
 @Component
-public class .TenantHelper {
+public class TenantHelper {
     @Autowired
     @Qualifier("sourceDataSource")
     private DataSource sourceDataSource;
