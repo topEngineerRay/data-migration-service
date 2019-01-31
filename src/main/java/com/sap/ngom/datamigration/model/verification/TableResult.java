@@ -1,6 +1,7 @@
 package com.sap.ngom.datamigration.model.verification;
 
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.*;
 
 import java.util.List;
@@ -10,7 +11,10 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class TableResult {
     private String table;
     private List<TenantResult> tenants;
+    private Boolean tenantVaildFlag;
 }
