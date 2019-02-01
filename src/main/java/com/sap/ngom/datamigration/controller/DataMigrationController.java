@@ -53,7 +53,6 @@ public class DataMigrationController {
         dataMigrationService.triggerAllMigrationJobs();
 
         ResponseMessage responseMessage = new ResponseMessage();
-        responseMessage = new ResponseMessage();
         responseMessage.setStatus(Status.SUCCESS);
         responseMessage.setMessage(TRIGGER_DATA_MIGRATION_SUCCESSFULLY);
         return ResponseEntity.ok().body(responseMessage);
