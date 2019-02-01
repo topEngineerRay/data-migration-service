@@ -173,7 +173,7 @@ public class DataMigrationService {
         return JobStatus.builder().table(tableName).jobStatus(jobStatus).build();
     }
 
-    private String getLastExecutionStatus (String jobName){
+    private String getLastExecutionStatus(String jobName) {
         String executionStatus;
         try{
             executionStatus = sourcJdbcTemplate.queryForObject("SELECT STATUS FROM batch_job_execution WHERE job_instance_id IN (SELECT JOB_INSTANCE_ID FROM batch_job_instance WHERE job_name = ?) ORDER BY start_time DESC LIMIT 1",
