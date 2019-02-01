@@ -29,12 +29,6 @@ public class DataMigrationController {
     @Autowired
     DataVerificationService dataVerificationService;
 
-    @Bean
-    public RestTemplate restTemplate(){
-         RestTemplate restTemplate = new RestTemplate();
-         return restTemplate;
-    }
-
     @GetMapping("/jobs/{tableName}")
     @ResponseBody
     public JobStatus getOneJobStatus(@PathVariable("tableName")final String tableName) {

@@ -64,7 +64,7 @@ public class DataMigrationService {
     private JobCompletionNotificationListener jobCompletionNotificationListener;
 
     @Autowired
-    TenantHelper tenantHelper;
+    private TenantHelper tenantHelper;
 
     @Autowired
     private DBConfigReader dbConfigReader;
