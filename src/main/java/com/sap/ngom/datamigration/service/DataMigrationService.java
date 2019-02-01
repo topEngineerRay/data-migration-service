@@ -1,5 +1,7 @@
 package com.sap.ngom.datamigration.service;
 
+import com.sap.ngom.datamigration.exception.RunJobException;
+import com.sap.ngom.datamigration.exception.SourceTableNotDefinedException;
 import com.sap.ngom.datamigration.listener.BPStepListener;
 import com.sap.ngom.datamigration.listener.JobCompletionNotificationListener;
 import com.sap.ngom.datamigration.model.JobStatus;
@@ -39,7 +41,7 @@ import java.util.Map;
 public class DataMigrationService {
 
     private static final int SKIP_LIMIT = 10;
-    public static final int CHUNK_SIZE = 10;
+    public static final int CHUNK_SIZE = 500;
 
     @Autowired
     private SimpleJobLauncher jobLauncher;
@@ -81,7 +83,7 @@ public class DataMigrationService {
         jobLauncher.setTaskExecutor(simpleAsyncTaskExecutor);
     }
 
-    public ResponseEntity triggerOneMigrationJob(String tableName) {
+    public void triggerOneMigrationJob(String tableName) {
         tableNameValidation(tableName);
 
         String jobName = tableName + JOB_NAME_SUFFIX;
@@ -103,17 +105,16 @@ public class DataMigrationService {
             try {
                 jobLauncher.run(migrationJob, generateJobParams());
             } catch (JobExecutionAlreadyRunningException e) {
-                e.printStackTrace();
+                throw new RunJobException(e.getMessage());
             } catch (JobRestartException e) {
-                e.printStackTrace();
+                throw new RunJobException(e.getMessage());
             } catch (JobInstanceAlreadyCompleteException e) {
-                e.printStackTrace();
+                throw new RunJobException(e.getMessage());
             } catch (JobParametersInvalidException e) {
-                e.printStackTrace();
+                throw new RunJobException(e.getMessage());
             }
         }
 
-        return ResponseEntity.ok().build();
     }
 
     private JobParameters getJobParameters(String jobParameter, String jobName) {
@@ -164,7 +165,6 @@ public class DataMigrationService {
         return new JobParametersBuilder().addDate("date", new Date()).toJobParameters();
     }
 
-
     public JobStatus getJobsStatus(String tableName) {
         tableNameValidation(tableName);
 
@@ -196,6 +196,12 @@ public class DataMigrationService {
             jobStatuses.add(jobStatus);
         }
         return jobStatuses;
+    }
+    
+    public void triggerAllMigrationJobs() {
+        for(String tableName:dbConfigReader.getSourceTableNames()){
+            triggerOneMigrationJob(tableName);
+        }
     }
 
 }
