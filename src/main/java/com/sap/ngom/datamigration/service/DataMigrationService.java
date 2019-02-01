@@ -165,7 +165,7 @@ public class DataMigrationService {
         return new JobParametersBuilder().addDate("date", new Date()).toJobParameters();
     }
 
-    public JobStatus getJobsStatus(String tableName) {
+    public JobStatus getJobStatus(String tableName) {
         tableNameValidation(tableName);
 
         String jobName = tableName + JOB_NAME_SUFFIX;

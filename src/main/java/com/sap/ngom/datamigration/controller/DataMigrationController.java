@@ -8,11 +8,9 @@ import com.sap.ngom.datamigration.service.DataMigrationService;
 import com.sap.ngom.datamigration.service.DataVerificationService;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Bean;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 
@@ -32,7 +30,7 @@ public class DataMigrationController {
     @GetMapping("/jobs/{tableName}")
     @ResponseBody
     public JobStatus getOneJobStatus(@PathVariable("tableName")final String tableName) {
-        return dataMigrationService.getJobsStatus(tableName);
+        return dataMigrationService.getJobStatus(tableName);
     }
 
     @GetMapping("/jobs")
