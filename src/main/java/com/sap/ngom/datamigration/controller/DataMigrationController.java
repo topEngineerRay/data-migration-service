@@ -1,5 +1,6 @@
 package com.sap.ngom.datamigration.controller;
 
+import com.sap.ngom.datamigration.model.JobStatus;
 import com.sap.ngom.datamigration.model.ResponseMessage;
 import com.sap.ngom.datamigration.model.Status;
 import com.sap.ngom.datamigration.service.DataCleanupService;
@@ -11,6 +12,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RequestMapping
 @Controller
 public class DataMigrationController {
@@ -20,10 +23,21 @@ public class DataMigrationController {
 
     @Autowired
     DataCleanupService dataCleanupService;
-
-
+    
     @Autowired
     DataVerificationService dataVerificationService;
+
+    @GetMapping("/jobs/{tableName}")
+    @ResponseBody
+    public JobStatus getOneJobStatus(@PathVariable("tableName")final String tableName) {
+        return dataMigrationService.getJobStatus(tableName);
+    }
+
+    @GetMapping("/jobs")
+    @ResponseBody
+    public List<JobStatus> getAllJobStatus() {
+        return dataMigrationService.getAllJobsStatus();
+    }
 
     @PostMapping("/jobs")
     public ResponseEntity triggerMigration()

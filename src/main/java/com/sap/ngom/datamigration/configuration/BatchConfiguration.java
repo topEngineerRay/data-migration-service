@@ -115,4 +115,8 @@ public class BatchConfiguration {
         return new SimpleAsyncTaskExecutor("MigrationService");
     }
 
+    @Bean("batchDataJDBCTemplate")
+    public JdbcTemplate sourcJdbcTemplate(){
+        return new JdbcTemplate(dataSource);
+    }
 }
