@@ -14,5 +14,4 @@ import java.util.List;
 
 public class Detail {
     private List<TableResult> tables;
-    private Boolean tableValidFlag;
 }
