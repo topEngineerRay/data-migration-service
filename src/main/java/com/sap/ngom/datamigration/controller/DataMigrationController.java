@@ -1,5 +1,6 @@
 package com.sap.ngom.datamigration.controller;
 
+import com.sap.ngom.datamigration.exception.JobAlreadyRuningException;
 import com.sap.ngom.datamigration.model.JobStatus;
 import com.sap.ngom.datamigration.model.ResponseMessage;
 import com.sap.ngom.datamigration.model.Status;
@@ -15,6 +16,7 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
+import java.util.Set;
 
 @RequestMapping
 @Controller
@@ -51,22 +53,32 @@ public class DataMigrationController {
     @PostMapping("/jobs")
     public ResponseEntity triggerMigration()
     {
-        dataMigrationService.triggerAllMigrationJobs();
+
+        Set<String> alreadyTriggeredTables = dataMigrationService.triggerAllMigrationJobs();
 
         ResponseMessage responseMessage = new ResponseMessage();
         responseMessage.setStatus(Status.SUCCESS);
-        responseMessage.setMessage(TRIGGER_DATA_MIGRATION_SUCCESSFULLY);
+        String reponstMessage = TRIGGER_DATA_MIGRATION_SUCCESSFULLY;
+        if(alreadyTriggeredTables.size()>0){
+            reponstMessage = "Tables: " + alreadyTriggeredTables.toString() + " migration will not be triggered, since there are other jobs running.";
+        }
+        responseMessage.setMessage(reponstMessage);
         return ResponseEntity.ok().body(responseMessage);
     }
 
     @PostMapping("/jobs/{tableName}")
     public ResponseEntity triggerTableMigration(@PathVariable("tableName")final String tableName) {
-        dataMigrationService.triggerOneMigrationJob(tableName);
-
         ResponseMessage responseMessage = new ResponseMessage();
-        responseMessage.setStatus(Status.SUCCESS);
-        responseMessage.setMessage(TRIGGER_DATA_MIGRATION_SUCCESSFULLY);
-        return ResponseEntity.ok().body(responseMessage);
+        try{
+            dataMigrationService.triggerOneMigrationJob(tableName);
+            responseMessage.setStatus(Status.SUCCESS);
+            responseMessage.setMessage(TRIGGER_DATA_MIGRATION_SUCCESSFULLY);
+            return ResponseEntity.ok().body(responseMessage);
+        }catch(JobAlreadyRuningException e){
+            responseMessage.setStatus(Status.FAILURE);
+            responseMessage.setMessage(e.getMessage());
+            return ResponseEntity.ok().body(responseMessage);
+        }
     }
 
     @PostMapping("/data/cleanup/{tableName}")

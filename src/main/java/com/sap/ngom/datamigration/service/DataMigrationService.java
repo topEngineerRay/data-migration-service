@@ -1,6 +1,7 @@
 package com.sap.ngom.datamigration.service;
 
 import com.sap.ngom.datamigration.configuration.BatchJobParameterHolder;
+import com.sap.ngom.datamigration.exception.JobAlreadyRuningException;
 import com.sap.ngom.datamigration.exception.RunJobException;
 import com.sap.ngom.datamigration.exception.SourceTableNotDefinedException;
 import com.sap.ngom.datamigration.listener.BPStepListener;
@@ -90,9 +91,7 @@ public class DataMigrationService {
 
     public void triggerOneMigrationJob(String tableName) {
         tableNameValidation(tableName);
-        if(isJobRunning(tableName)){
-            return ResponseEntity.badRequest().body("This job can't executed, because currently another job is running for this table");
-        }
+        checkExistJobRunning(tableName);
 
         String jobName = tableName + JOB_NAME_SUFFIX;
         List<Step> stepList = new ArrayList<Step>();
@@ -130,13 +129,15 @@ public class DataMigrationService {
         return jobBuilder.toJobParameters();
     }
 
-    private boolean isJobRunning(String tableName){
+    private void checkExistJobRunning(String tableName){
         JobExecution jobExecution = jobRepository.getLastJobExecution(tableName+JOB_NAME_SUFFIX, getJobParameters(tableName));
-        if(null == jobExecution){
-            return false;
+        if(null != jobExecution){
+            BatchStatus batchStatus = jobExecution.getStatus();
+            if (batchStatus.equals(BatchStatus.STARTED) || batchStatus.equals(BatchStatus.STARTING) || batchStatus.equals(BatchStatus.UNKNOWN)){
+                throw new JobAlreadyRuningException("Job can't be executed, currently another job is running for this table");
+            }
         }
-        BatchStatus batchStatus = jobExecution.getStatus();
-        return batchStatus.equals(BatchStatus.STARTED) || batchStatus.equals(BatchStatus.STARTING) || batchStatus.equals(BatchStatus.UNKNOWN);
+
     }
 
     private JobParameters getJobParameters(String jobParameter, String jobName) {
@@ -220,10 +221,16 @@ public class DataMigrationService {
         return jobStatuses;
     }
     
-    public void triggerAllMigrationJobs() {
+    public Set<String> triggerAllMigrationJobs() {
+        Set<String> alreadyTriggeredTables = new HashSet<>();
         for(String tableName:dbConfigReader.getSourceTableNames()){
-            triggerOneMigrationJob(tableName);
+            try{
+                triggerOneMigrationJob(tableName);
+            }catch(JobAlreadyRuningException e){
+                alreadyTriggeredTables.add(tableName);
+            }
         }
+        return alreadyTriggeredTables;
     }
 
 }
