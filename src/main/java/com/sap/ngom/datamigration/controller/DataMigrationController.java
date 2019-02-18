@@ -18,6 +18,8 @@ import org.springframework.web.client.RestTemplate;
 import java.util.List;
 import java.util.Set;
 
+import java.util.List;
+
 @RequestMapping
 @Controller
 public class DataMigrationController {
@@ -40,7 +42,7 @@ public class DataMigrationController {
     @GetMapping("/jobs/{tableName}")
     @ResponseBody
     public JobStatus getOneJobStatus(@PathVariable("tableName")final String tableName) {
-        return dataMigrationService.getJobsStatus(tableName);
+        return dataMigrationService.getJobStatus(tableName);
     }
 
     @GetMapping("/jobs")
@@ -48,7 +50,7 @@ public class DataMigrationController {
     public List<JobStatus> getAllJobStatus() {
         return dataMigrationService.getAllJobsStatus();
     }
-   
+
 
     @PostMapping("/jobs")
     public ResponseEntity triggerMigration()

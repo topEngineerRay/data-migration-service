@@ -108,6 +108,7 @@ public class DataMigrationService {
                     .build();
             migrationJob.setSteps(stepList);
 
+
             try {
                 jobLauncher.run(migrationJob, getJobParameters(tableName));
             } catch (JobExecutionAlreadyRunningException e) {
