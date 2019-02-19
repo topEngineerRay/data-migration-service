@@ -92,23 +92,23 @@ public class InitializerService {
                     if (managedServiceInstance == null) {
                         throw new HanaDataSourceDeterminationException("Create managed instance failed for tenant: " + tenantId);
                     }
-
                     // call HDI deployer
                     try {
                         hdiDeployerClient.executeHDIDeployment(managedServiceInstance);
-                        dataSource = hdiDeployerClient.createDataSource(managedServiceInstance);
-                        multiTenantDataSourceHolder.storeDataSource(tenantId, dataSource);
                     } catch (HDIDeploymentException e) {
                         hasError.set(true);
                         log.error("Determine data source failed", e);
                     }
+                    dataSource = hdiDeployerClient.createDataSource(managedServiceInstance);
+                    multiTenantDataSourceHolder.storeDataSource(tenantId, dataSource);
+
                 }
 
                 tenantLatch.countDown();
             });
         }
 
-        if(!tenantLatch.await(300, TimeUnit.SECONDS)) {  // wait until latch counted down to 0
+        if(!tenantLatch.await(3000, TimeUnit.SECONDS)) {  // wait until latch counted down to 0
             log.error("Count down when time out: {}", tenantLatch.getCount());
         }
         Long endTimestamp = System.currentTimeMillis();
