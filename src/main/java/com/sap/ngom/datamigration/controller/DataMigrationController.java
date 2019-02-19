@@ -1,5 +1,6 @@
 package com.sap.ngom.datamigration.controller;
 
+import com.sap.ngom.datamigration.configuration.BatchJobParameterHolder;
 import com.sap.ngom.datamigration.exception.JobAlreadyRuningException;
 import com.sap.ngom.datamigration.model.JobStatus;
 import com.sap.ngom.datamigration.model.ResponseMessage;
@@ -60,7 +61,7 @@ public class DataMigrationController {
         responseMessage.setStatus(Status.SUCCESS);
         String reponstMessage = TRIGGER_DATA_MIGRATION_SUCCESSFULLY;
         if(alreadyTriggeredTables.size()>0){
-            reponstMessage = "Tables: " + alreadyTriggeredTables.toString() + " migration will not be triggered, since there are other jobs running.";
+            reponstMessage += " Tables: " + alreadyTriggeredTables.toString() + " migration will not be triggered, since there are other jobs running.";
         }
         responseMessage.setMessage(reponstMessage);
         return ResponseEntity.ok().body(responseMessage);
@@ -69,14 +70,14 @@ public class DataMigrationController {
     @PostMapping("/jobs/{tableName}")
     public ResponseEntity triggerTableMigration(@PathVariable("tableName")final String tableName) {
         ResponseMessage responseMessage = new ResponseMessage();
-        try{
+        if(dataMigrationService.isJobRunningOnTable(tableName)){
+            responseMessage.setStatus(Status.FAILURE);
+            responseMessage.setMessage("Job can't be executed, currently another job is running for this table");
+            return ResponseEntity.ok().body(responseMessage);
+        }else{
             dataMigrationService.triggerOneMigrationJob(tableName);
             responseMessage.setStatus(Status.SUCCESS);
             responseMessage.setMessage(TRIGGER_DATA_MIGRATION_SUCCESSFULLY);
-            return ResponseEntity.ok().body(responseMessage);
-        }catch(JobAlreadyRuningException e){
-            responseMessage.setStatus(Status.FAILURE);
-            responseMessage.setMessage(e.getMessage());
             return ResponseEntity.ok().body(responseMessage);
         }
     }

@@ -1,17 +1,17 @@
 package com.sap.ngom.datamigration.service;
 
 import com.sap.ngom.datamigration.configuration.BatchJobParameterHolder;
-import com.sap.ngom.datamigration.exception.JobAlreadyRuningException;
 import com.sap.ngom.datamigration.exception.RunJobException;
 import com.sap.ngom.datamigration.exception.SourceTableNotDefinedException;
 import com.sap.ngom.datamigration.listener.BPStepListener;
 import com.sap.ngom.datamigration.listener.JobCompletionNotificationListener;
 import com.sap.ngom.datamigration.model.JobStatus;
-import com.sap.ngom.datamigration.exception.SourceTableNotDefinedException;
 import com.sap.ngom.datamigration.processor.CustomItemProcessor;
 import com.sap.ngom.datamigration.util.DBConfigReader;
 import com.sap.ngom.datamigration.util.TenantHelper;
 import com.sap.ngom.datamigration.writer.GenericItemWriter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.batch.core.*;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
@@ -28,7 +28,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.dao.EmptyResultDataAccessException;
-import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.ColumnMapRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -39,6 +38,7 @@ import java.util.*;
 
 @Service
 public class DataMigrationService {
+    private static final Logger log = LoggerFactory.getLogger(DataMigrationService.class);
 
     private static final int SKIP_LIMIT = 10;
     public static final int CHUNK_SIZE = 500;
@@ -91,7 +91,6 @@ public class DataMigrationService {
 
     public void triggerOneMigrationJob(String tableName) {
         tableNameValidation(tableName);
-        checkExistJobRunning(tableName);
 
         String jobName = tableName + JOB_NAME_SUFFIX;
         List<Step> stepList = new ArrayList<Step>();
@@ -125,19 +124,25 @@ public class DataMigrationService {
 
     private JobParameters getJobParameters(String tableName){
         JobParametersBuilder jobBuilder = new JobParametersBuilder();
-        jobBuilder.addString(tableName,batchJobParameterHolder.getParameter(tableName).toString());
+        jobBuilder.addString(tableName,batchJobParameterHolder.getIncreasingParameter(tableName).toString());
         return jobBuilder.toJobParameters();
     }
 
-    private void checkExistJobRunning(String tableName){
-        JobExecution jobExecution = jobRepository.getLastJobExecution(tableName+JOB_NAME_SUFFIX, getJobParameters(tableName));
+    private JobParameters getCurrentRunntingJobParameters(String tableName){
+        JobParametersBuilder jobBuilder = new JobParametersBuilder();
+        jobBuilder.addString(tableName,batchJobParameterHolder.getCurrentParameter(tableName).toString());
+        return jobBuilder.toJobParameters();
+    }
+
+    public boolean isJobRunningOnTable(String tableName){
+       /* JobExecution jobExecution = jobRepository.getLastJobExecution(tableName+JOB_NAME_SUFFIX, getJobParameters(tableName));
         if(null != jobExecution){
             BatchStatus batchStatus = jobExecution.getStatus();
             if (batchStatus.equals(BatchStatus.STARTED) || batchStatus.equals(BatchStatus.STARTING) || batchStatus.equals(BatchStatus.UNKNOWN)){
                 throw new JobAlreadyRuningException("Job can't be executed, currently another job is running for this table");
             }
-        }
-
+        }*/
+        return batchJobParameterHolder.acquireJobLock(tableName);
     }
 
     private JobParameters getJobParameters(String jobParameter, String jobName) {
@@ -191,18 +196,17 @@ public class DataMigrationService {
     public JobStatus getJobsStatus(String tableName) {
         tableNameValidation(tableName);
 
-        String jobName = tableName + JOB_NAME_SUFFIX;
-        String jobStatus = getLastExecutionStatus(jobName);
+        String jobStatus = getLastExecutionStatus(tableName);
         return JobStatus.builder().table(tableName).jobStatus(jobStatus).build();
     }
 
-    private String getLastExecutionStatus (String jobName){
+    private String getLastExecutionStatus (String tableName){
         String executionStatus;
-        try{
-            executionStatus = sourcJdbcTemplate.queryForObject("SELECT STATUS FROM batch_job_execution WHERE job_instance_id IN (SELECT JOB_INSTANCE_ID FROM batch_job_instance WHERE job_name = ?) ORDER BY start_time DESC LIMIT 1",
-                new Object[]{jobName}, String.class );
-        }catch (EmptyResultDataAccessException exception){
+        JobExecution jobExecution = jobRepository.getLastJobExecution(tableName+JOB_NAME_SUFFIX, getCurrentRunntingJobParameters(tableName));
+        if(null == jobExecution){
             executionStatus = "No Job Triggered Yet!";
+        }else{
+            executionStatus = jobExecution.getStatus().toString();
         }
         return executionStatus;
     }
@@ -214,7 +218,7 @@ public class DataMigrationService {
             return jobStatuses;
         }
         for (String sourceTable : sourceTables) {
-            String executionStatus = getLastExecutionStatus(sourceTable + JOB_NAME_SUFFIX);
+            String executionStatus = getLastExecutionStatus(sourceTable);
             JobStatus jobStatus = JobStatus.builder().table(sourceTable).jobStatus(executionStatus).build();
             jobStatuses.add(jobStatus);
         }
@@ -224,10 +228,12 @@ public class DataMigrationService {
     public Set<String> triggerAllMigrationJobs() {
         Set<String> alreadyTriggeredTables = new HashSet<>();
         for(String tableName:dbConfigReader.getSourceTableNames()){
-            try{
-                triggerOneMigrationJob(tableName);
-            }catch(JobAlreadyRuningException e){
+            if(isJobRunningOnTable(tableName)){
                 alreadyTriggeredTables.add(tableName);
+                log.info("Migration job of table: " + tableName + "skipped from trigger all jobs.");
+            }else{
+                triggerOneMigrationJob(tableName);
+                log.info("Migration job of table: " + tableName + "triggered from trigger all jobs.");
             }
         }
         return alreadyTriggeredTables;
