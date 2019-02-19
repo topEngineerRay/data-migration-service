@@ -89,4 +89,10 @@ public class DataMigrationController {
         return ResponseEntity.status(200).body(dataVerificationService.dataVerificationForOneTable(tableName));
     }
 
+    @PostMapping("/migrateSingleRecord")
+    public ResponseEntity<ResponseMessage> migrateSingleRecord(@RequestParam final String tableName, @RequestParam final String primaryKey){
+        dataMigrationService.migrateSingleRecord(tableName, primaryKey);
+        return null;
+    }
+
 }

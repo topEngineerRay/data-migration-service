@@ -154,6 +154,15 @@ public class DataMigrationService {
         return itemReader;
     }
 
+    private JdbcCursorItemReader<Map<String, Object>> singleItemReader(final DataSource dataSource, String tableName,
+            String tenant) {
+        JdbcCursorItemReader<Map<String, Object>> itemReader = new JdbcCursorItemReader<>();
+        itemReader.setDataSource(dataSource);
+        itemReader.setSql("select * from " + tableName + " where tenant_id ='" + tenant + "'");
+        itemReader.setRowMapper(new ColumnMapRowMapper());
+        return itemReader;
+    }
+
     private ItemWriter<Map<String, Object>> buildItemWriter(final DataSource dataSource, final String tableName,
             final String targetNameSpace) {
         // insert into hana
@@ -202,6 +211,10 @@ public class DataMigrationService {
         for(String tableName:dbConfigReader.getSourceTableNames()){
             triggerOneMigrationJob(tableName);
         }
+    }
+
+    public Object migrateSingleRecord(String tableName, String primaryKey) {
+        return null;
     }
 
 }
