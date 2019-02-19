@@ -8,4 +8,4 @@ applications:
     - postgresql-business-partner
     - managed-hana-business-partner
   env:
-    VAULT_AUTH_TOKEN: "???"
+    VAULT_AUTH_TOKEN: "${vault.generateToken()}"
