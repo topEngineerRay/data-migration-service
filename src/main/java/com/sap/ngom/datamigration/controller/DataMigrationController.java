@@ -1,5 +1,6 @@
 package com.sap.ngom.datamigration.controller;
 
+import com.sap.ngom.datamigration.model.JobStatus;
 import com.sap.ngom.datamigration.model.ResponseMessage;
 import com.sap.ngom.datamigration.model.Status;
 import com.sap.ngom.datamigration.service.*;
@@ -9,10 +10,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 @RequestMapping
 @Controller
 public class DataMigrationController {
 
+    public static final String TRIGGER_DATA_MIGRATION_SUCCESSFULLY = "Trigger data migration successfully.";
     @Autowired DataMigrationService dataMigrationService;
 
     @Autowired
@@ -27,17 +31,37 @@ public class DataMigrationController {
     @Autowired
     InitializerService initializerService;
 
+    @GetMapping("/jobs/{tableName}")
+    @ResponseBody
+    public JobStatus getOneJobStatus(@PathVariable("tableName")final String tableName) {
+        return dataMigrationService.getJobStatus(tableName);
+    }
+
+    @GetMapping("/jobs")
+    @ResponseBody
+    public List<JobStatus> getAllJobStatus() {
+        return dataMigrationService.getAllJobsStatus();
+    }
+
     @PostMapping("/jobs")
     public ResponseEntity triggerMigration()
     {
         dataMigrationService.triggerAllMigrationJobs();
-        return ResponseEntity.ok().build();
+
+        ResponseMessage responseMessage = new ResponseMessage();
+        responseMessage.setStatus(Status.SUCCESS);
+        responseMessage.setMessage(TRIGGER_DATA_MIGRATION_SUCCESSFULLY);
+        return ResponseEntity.ok().body(responseMessage);
     }
 
     @PostMapping("/jobs/{tableName}")
     public ResponseEntity triggerTableMigration(@PathVariable("tableName")final String tableName) {
         dataMigrationService.triggerOneMigrationJob(tableName);
-        return ResponseEntity.ok().build();
+
+        ResponseMessage responseMessage = new ResponseMessage();
+        responseMessage.setStatus(Status.SUCCESS);
+        responseMessage.setMessage(TRIGGER_DATA_MIGRATION_SUCCESSFULLY);
+        return ResponseEntity.ok().body(responseMessage);
     }
 
     @PostMapping("/data/cleanup/{tableName}")
@@ -68,10 +92,15 @@ public class DataMigrationController {
         }
         return ResponseEntity.ok().build();
     }
+    
+    @PostMapping("/data/verification")
+    public ResponseEntity<ResponseMessage> dataVerificationForOneTable(){
+        return ResponseEntity.status(200).body(dataVerificationService.dataVerificationForAllTable());
+    }
 
     @PostMapping("/data/verification/{tableName}")
-    public ResponseEntity<ResponseMessage> migrationTableVerification(@PathVariable("tableName")final String tableName){
-        return ResponseEntity.status(200).body(dataVerificationService.tableMigrationResultVerification(tableName));
+    public ResponseEntity<ResponseMessage> dataVerificationForAllTable(@PathVariable("tableName")final String tableName){
+        return ResponseEntity.status(200).body(dataVerificationService.dataVerificationForOneTable(tableName));
     }
 
     @PostMapping("/initialization")
@@ -93,6 +122,4 @@ public class DataMigrationController {
         }
         return ResponseEntity.ok().build();
     }
-
-
 }

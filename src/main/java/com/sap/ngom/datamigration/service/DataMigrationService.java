@@ -4,6 +4,8 @@ import com.sap.ngom.datamigration.exception.RunJobException;
 import com.sap.ngom.datamigration.exception.SourceTableNotDefinedException;
 import com.sap.ngom.datamigration.listener.BPStepListener;
 import com.sap.ngom.datamigration.listener.JobCompletionNotificationListener;
+import com.sap.ngom.datamigration.model.JobStatus;
+import com.sap.ngom.datamigration.exception.SourceTableNotDefinedException;
 import com.sap.ngom.datamigration.processor.CustomItemProcessor;
 import com.sap.ngom.datamigration.util.DBConfigReader;
 import com.sap.ngom.datamigration.util.TenantHelper;
@@ -22,7 +24,10 @@ import org.springframework.batch.item.database.JdbcCursorItemReader;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskExecutor;
+import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.ColumnMapRowMapper;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
@@ -36,7 +41,7 @@ import java.util.Map;
 public class DataMigrationService {
 
     private static final int SKIP_LIMIT = 10;
-    public static final int CHUNK_SIZE = 10;
+    public static final int CHUNK_SIZE = 500;
 
     @Autowired
     private SimpleJobLauncher jobLauncher;
@@ -67,6 +72,11 @@ public class DataMigrationService {
     @Autowired
     private TaskExecutor simpleAsyncTaskExecutor;
 
+    @Autowired
+    @Qualifier("batchDataJDBCTemplate")
+    private JdbcTemplate sourcJdbcTemplate;
+
+    private static String JOB_NAME_SUFFIX = "_MigrationJob";
 
     @PostConstruct
     void postConstruct() {
@@ -76,7 +86,7 @@ public class DataMigrationService {
     public void triggerOneMigrationJob(String tableName) {
         tableNameValidation(tableName);
 
-        String jobName = tableName + "_" + "MigrationJob";
+        String jobName = tableName + JOB_NAME_SUFFIX;
         List<Step> stepList = new ArrayList<Step>();
         List<String> tenants = tenantHelper.getAllTenants(tableName);
         if (!tenants.isEmpty()) {
@@ -90,6 +100,7 @@ public class DataMigrationService {
                     .listener(jobCompletionNotificationListener).start(stepList.get(0))
                     .build();
             migrationJob.setSteps(stepList);
+
 
             try {
                 jobLauncher.run(migrationJob, generateJobParams());
@@ -154,6 +165,39 @@ public class DataMigrationService {
         return new JobParametersBuilder().addDate("date", new Date()).toJobParameters();
     }
 
+    public JobStatus getJobStatus(String tableName) {
+        tableNameValidation(tableName);
+
+        String jobName = tableName + JOB_NAME_SUFFIX;
+        String jobStatus = getLastExecutionStatus(jobName);
+        return JobStatus.builder().table(tableName).jobStatus(jobStatus).build();
+    }
+
+    private String getLastExecutionStatus(String jobName) {
+        String executionStatus;
+        try{
+            executionStatus = sourcJdbcTemplate.queryForObject("SELECT STATUS FROM batch_job_execution WHERE job_instance_id IN (SELECT JOB_INSTANCE_ID FROM batch_job_instance WHERE job_name = ?) ORDER BY start_time DESC LIMIT 1",
+                new Object[]{jobName}, String.class );
+        }catch (EmptyResultDataAccessException exception){
+            executionStatus = "No Job Triggered Yet!";
+        }
+        return executionStatus;
+    }
+
+    public List<JobStatus> getAllJobsStatus (){
+        List<String> sourceTables = dbConfigReader.getSourceTableNames();
+        List<JobStatus> jobStatuses = new ArrayList<>();
+        if(sourceTables.isEmpty()){
+            return jobStatuses;
+        }
+        for (String sourceTable : sourceTables) {
+            String executionStatus = getLastExecutionStatus(sourceTable + JOB_NAME_SUFFIX);
+            JobStatus jobStatus = JobStatus.builder().table(sourceTable).jobStatus(executionStatus).build();
+            jobStatuses.add(jobStatus);
+        }
+        return jobStatuses;
+    }
+    
     public void triggerAllMigrationJobs() {
         for(String tableName:dbConfigReader.getSourceTableNames()){
             triggerOneMigrationJob(tableName);
