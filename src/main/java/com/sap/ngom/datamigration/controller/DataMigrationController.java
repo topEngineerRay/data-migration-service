@@ -5,9 +5,7 @@ import com.sap.ngom.datamigration.exception.JobAlreadyRuningException;
 import com.sap.ngom.datamigration.model.JobStatus;
 import com.sap.ngom.datamigration.model.ResponseMessage;
 import com.sap.ngom.datamigration.model.Status;
-import com.sap.ngom.datamigration.service.DataCleanupService;
-import com.sap.ngom.datamigration.service.DataMigrationService;
-import com.sap.ngom.datamigration.service.DataVerificationService;
+import com.sap.ngom.datamigration.service.*;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -19,6 +17,8 @@ import org.springframework.web.client.RestTemplate;
 import java.util.List;
 import java.util.Set;
 
+import java.util.List;
+
 @RequestMapping
 @Controller
 public class DataMigrationController {
@@ -28,20 +28,21 @@ public class DataMigrationController {
 
     @Autowired
     DataCleanupService dataCleanupService;
-    
+
+    @Autowired
+    ManagedInstanceService managedInstanceService;
+
     @Autowired
     DataVerificationService dataVerificationService;
 
-    @Bean
-    public RestTemplate restTemplate(){
-         RestTemplate restTemplate = new RestTemplate();
-         return restTemplate;
-    }
+    @Autowired
+    InitializerService initializerService;
+
 
     @GetMapping("/jobs/{tableName}")
     @ResponseBody
     public JobStatus getOneJobStatus(@PathVariable("tableName")final String tableName) {
-        return dataMigrationService.getJobsStatus(tableName);
+        return dataMigrationService.getJobStatus(tableName);
     }
 
     @GetMapping("/jobs")
@@ -49,7 +50,7 @@ public class DataMigrationController {
     public List<JobStatus> getAllJobStatus() {
         return dataMigrationService.getAllJobsStatus();
     }
-   
+
 
     @PostMapping("/jobs")
     public ResponseEntity triggerMigration()
@@ -101,6 +102,16 @@ public class DataMigrationController {
         return ResponseEntity.ok().body(responseMessage);
     }
 
+    @PostMapping("/managed-instances/cleanup")
+    public ResponseEntity<Void> managedInstancesClear() {
+        try {
+            managedInstanceService.deleteAll();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return ResponseEntity.ok().build();
+    }
+    
     @PostMapping("/data/verification")
     public ResponseEntity<ResponseMessage> dataVerificationForOneTable(){
         return ResponseEntity.status(200).body(dataVerificationService.dataVerificationForAllTable());
@@ -112,4 +123,23 @@ public class DataMigrationController {
         return ResponseEntity.status(200).body(dataVerificationService.dataVerificationForOneTable(tableName));
     }
 
+    @PostMapping("/initialization")
+    public ResponseEntity<Void> tableInitializeAll() {
+        try {
+            initializerService.initialize4AllTables();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/initialization/{tableName}")
+    public ResponseEntity<Void> tableInitializeOne(@PathVariable("tableName")final String tableName) {
+        try {
+            initializerService.initialize4OneTable(tableName);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return ResponseEntity.ok().build();
+    }
 }
