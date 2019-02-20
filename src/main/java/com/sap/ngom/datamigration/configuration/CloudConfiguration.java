@@ -1,5 +1,6 @@
 package com.sap.ngom.datamigration.configuration;
 
+import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.cloud.config.java.AbstractCloudConfig;
 import org.springframework.cloud.service.PooledServiceConnectorConfig;
 import org.springframework.cloud.service.relational.DataSourceConfig;
@@ -23,15 +24,18 @@ public class CloudConfiguration extends AbstractCloudConfig {
      * This replaces the definition of the DataSource in https://github.com/spring-cloud/spring-cloud-connectors/blob/eaa65c2/spring-cloud-spring-service-connector/src/main/java/org/springframework/cloud/service/relational/DbcpLikePooledDataSourceCreator.java,
      * which defines a JDBC connection pool of only 4.
      */
-    @Primary
     @Bean
     public DataSource sourceDataSource() {
         final PooledServiceConnectorConfig.PoolConfig poolConfig = new PooledServiceConnectorConfig.PoolConfig(16, MAX_WAIT_TIME_MS);
         final DataSourceConfig dbConfig = new DataSourceConfig(poolConfig, null);
         final DataSource dataSource = connectionFactory().dataSource(dbConfig);
-        assert !(dataSource instanceof com.zaxxer.hikari.HikariDataSource
-                && "org.h2.Driver".equals(((com.zaxxer.hikari.HikariDataSource) dataSource).getDriverClassName()));
         return dataSource;
+    }
+
+    @Bean("batchConfigDataSource")
+    @Primary
+    public DataSource batchConfigH2DataSource() {
+        return DataSourceBuilder.create().url("jdbc:h2:mem:testdb").driverClassName("org.h2.Driver").username("sa").password("").build();
     }
 
 }

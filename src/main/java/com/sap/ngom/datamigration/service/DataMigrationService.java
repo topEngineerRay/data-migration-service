@@ -78,10 +78,6 @@ public class DataMigrationService {
     @Autowired
     private BatchJobParameterHolder batchJobParameterHolder;
 
-    @Autowired
-    @Qualifier("batchDataJDBCTemplate")
-    private JdbcTemplate sourcJdbcTemplate;
-
     private static String JOB_NAME_SUFFIX = "_MigrationJob";
 
     @PostConstruct
@@ -136,13 +132,6 @@ public class DataMigrationService {
     }
 
     public boolean isJobRunningOnTable(String tableName){
-       /* JobExecution jobExecution = jobRepository.getLastJobExecution(tableName+JOB_NAME_SUFFIX, getJobParameters(tableName));
-        if(null != jobExecution){
-            BatchStatus batchStatus = jobExecution.getStatus();
-            if (batchStatus.equals(BatchStatus.STARTED) || batchStatus.equals(BatchStatus.STARTING) || batchStatus.equals(BatchStatus.UNKNOWN)){
-                throw new JobAlreadyRuningException("Job can't be executed, currently another job is running for this table");
-            }
-        }*/
         return batchJobParameterHolder.acquireJobLock(tableName);
     }
 
@@ -194,7 +183,7 @@ public class DataMigrationService {
         return new JobParametersBuilder().addDate("date", new Date()).toJobParameters();
     }
 
-    public JobStatus getJobsStatus(String tableName) {
+    public JobStatus getJobStatus(String tableName) {
         tableNameValidation(tableName);
 
         String jobStatus = getLastExecutionStatus(tableName);
