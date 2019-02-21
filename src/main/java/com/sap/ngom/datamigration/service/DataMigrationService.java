@@ -5,7 +5,6 @@ import com.sap.ngom.datamigration.exception.SourceTableNotDefinedException;
 import com.sap.ngom.datamigration.listener.BPStepListener;
 import com.sap.ngom.datamigration.listener.JobCompletionNotificationListener;
 import com.sap.ngom.datamigration.model.JobStatus;
-import com.sap.ngom.datamigration.exception.SourceTableNotDefinedException;
 import com.sap.ngom.datamigration.processor.CustomItemProcessor;
 import com.sap.ngom.datamigration.util.DBConfigReader;
 import com.sap.ngom.datamigration.util.TenantHelper;
@@ -25,7 +24,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.dao.EmptyResultDataAccessException;
-import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.ColumnMapRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
@@ -117,12 +115,6 @@ public class DataMigrationService {
 
     }
 
-    private JobParameters getJobParameters(String jobParameter, String jobName) {
-        JobParametersBuilder jobBuilder = new JobParametersBuilder();
-        jobBuilder.addString(jobName, jobParameter);
-        return jobBuilder.toJobParameters();
-    }
-
     private void tableNameValidation(String tableName) {
         if (!dbConfigReader.getSourceTableNames().contains(tableName)) {
             throw new SourceTableNotDefinedException("There is no table:" + tableName + " in the database");
@@ -181,15 +173,6 @@ public class DataMigrationService {
         return itemReader;
     }
 
-    private JdbcCursorItemReader<Map<String, Object>> singleItemReader(final DataSource dataSource, String tableName,
-            String tenant) {
-        JdbcCursorItemReader<Map<String, Object>> itemReader = new JdbcCursorItemReader<>();
-        itemReader.setDataSource(dataSource);
-        itemReader.setSql("select * from " + tableName + " where tenant_id ='" + tenant + "'");
-        itemReader.setRowMapper(new ColumnMapRowMapper());
-        return itemReader;
-    }
-
     private ItemWriter<Map<String, Object>> buildItemWriter(final DataSource dataSource, final String tableName,
             final String targetNameSpace) {
         // insert into hana
@@ -240,18 +223,19 @@ public class DataMigrationService {
         }
     }
 
-    public Object migrateSingleRecord(String tableName, String tenant, String primaryKeyName, String primaryKeyValue) {
+    public BatchStatus migrateSingleRecord(String tableName, String tenant, String primaryKeyName,
+            String primaryKeyValue) {
 
-        String jobName = tableName + primaryKeyValue +JOB_NAME_SUFFIX;
+        String jobName = tableName + primaryKeyValue + JOB_NAME_SUFFIX;
         Step step = createOneStepByPrimaryKey(tableName, tenant, primaryKeyName, primaryKeyValue);
 
         SimpleJob migrationJob = (SimpleJob) jobBuilderFactory.get(jobName)
                 .incrementer(new RunIdIncrementer())
                 .listener(jobCompletionNotificationListener).start(step)
                 .build();
-
+        JobExecution jobExecution = null;
         try {
-            jobLauncher.run(migrationJob, generateJobParams());
+            jobExecution = jobLauncher.run(migrationJob, generateJobParams());
         } catch (JobExecutionAlreadyRunningException e) {
             throw new RunJobException(e.getMessage());
         } catch (JobRestartException e) {
@@ -261,7 +245,7 @@ public class DataMigrationService {
         } catch (JobParametersInvalidException e) {
             throw new RunJobException(e.getMessage());
         }
-        return null;
+        return jobExecution.getStatus();
     }
 
 }

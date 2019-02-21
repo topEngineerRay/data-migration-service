@@ -5,6 +5,7 @@ import com.sap.ngom.datamigration.model.ResponseMessage;
 import com.sap.ngom.datamigration.model.Status;
 import com.sap.ngom.datamigration.service.*;
 
+import org.springframework.batch.core.BatchStatus;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
@@ -17,6 +18,8 @@ import java.util.List;
 public class DataMigrationController {
 
     public static final String TRIGGER_DATA_MIGRATION_SUCCESSFULLY = "Trigger data migration successfully.";
+    public static final String TRIGGER_SINGLE_RECORD_DATA_MIGRATION = "Migarate single record ";
+
     @Autowired DataMigrationService dataMigrationService;
 
     @Autowired
@@ -108,8 +111,13 @@ public class DataMigrationController {
             @RequestParam final String tenant,
             @RequestParam final String primaryKeyName,
             @RequestParam final String primaryKeyValue) {
-        dataMigrationService.migrateSingleRecord(tableName, tenant, primaryKeyName, primaryKeyValue);
-        return null;
+
+        BatchStatus status = dataMigrationService
+                .migrateSingleRecord(tableName, tenant, primaryKeyName, primaryKeyValue);
+        ResponseMessage responseMessage = new ResponseMessage();
+        responseMessage.setStatus(Status.SUCCESS);
+        responseMessage.setMessage(TRIGGER_SINGLE_RECORD_DATA_MIGRATION + status);
+        return ResponseEntity.ok().body(responseMessage);
     }
 
     @PostMapping("/initialization")
