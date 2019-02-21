@@ -3,9 +3,7 @@ package com.sap.ngom.datamigration.controller;
 import com.sap.ngom.datamigration.model.JobStatus;
 import com.sap.ngom.datamigration.model.ResponseMessage;
 import com.sap.ngom.datamigration.model.Status;
-import com.sap.ngom.datamigration.service.DataCleanupService;
-import com.sap.ngom.datamigration.service.DataMigrationService;
-import com.sap.ngom.datamigration.service.DataVerificationService;
+import com.sap.ngom.datamigration.service.*;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -23,9 +21,15 @@ public class DataMigrationController {
 
     @Autowired
     DataCleanupService dataCleanupService;
-    
+
+    @Autowired
+    ManagedInstanceService managedInstanceService;
+
     @Autowired
     DataVerificationService dataVerificationService;
+
+    @Autowired
+    InitializerService initializerService;
 
     @GetMapping("/jobs/{tableName}")
     @ResponseBody
@@ -79,6 +83,16 @@ public class DataMigrationController {
         return ResponseEntity.ok().body(responseMessage);
     }
 
+    @PostMapping("/managed-instances/cleanup")
+    public ResponseEntity<Void> managedInstancesClear() {
+        try {
+            managedInstanceService.deleteAll();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return ResponseEntity.ok().build();
+    }
+    
     @PostMapping("/data/verification")
     public ResponseEntity<ResponseMessage> dataVerificationForOneTable(){
         return ResponseEntity.status(200).body(dataVerificationService.dataVerificationForAllTable());
@@ -90,9 +104,32 @@ public class DataMigrationController {
     }
 
     @PostMapping("/migrateSingleRecord")
-    public ResponseEntity<ResponseMessage> migrateSingleRecord(@RequestParam final String tableName, @RequestParam final String primaryKey){
-        dataMigrationService.migrateSingleRecord(tableName, primaryKey);
+    public ResponseEntity<ResponseMessage> migrateSingleRecord(@RequestParam final String tableName,
+            @RequestParam final String tenant,
+            @RequestParam final String primaryKeyName,
+            @RequestParam final String primaryKeyValue) {
+        dataMigrationService.migrateSingleRecord(tableName, tenant, primaryKeyName, primaryKeyValue);
         return null;
+    }
+
+    @PostMapping("/initialization")
+    public ResponseEntity<Void> tableInitializeAll() {
+        try {
+            initializerService.initialize4AllTables();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/initialization/{tableName}")
+    public ResponseEntity<Void> tableInitializeOne(@PathVariable("tableName")final String tableName) {
+        try {
+            initializerService.initialize4OneTable(tableName);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        return ResponseEntity.ok().build();
     }
 
 }
