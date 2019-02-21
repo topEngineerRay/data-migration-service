@@ -18,7 +18,6 @@ import java.util.List;
 public class DataMigrationController {
 
     public static final String TRIGGER_DATA_MIGRATION_SUCCESSFULLY = "Trigger data migration successfully.";
-    public static final String TRIGGER_SINGLE_RECORD_DATA_MIGRATION = "Migarate single record ";
 
     @Autowired DataMigrationService dataMigrationService;
 
@@ -112,11 +111,10 @@ public class DataMigrationController {
             @RequestParam final String primaryKeyName,
             @RequestParam final String primaryKeyValue) {
 
-        BatchStatus status = dataMigrationService
-                .migrateSingleRecord(tableName, tenant, primaryKeyName, primaryKeyValue);
+        dataMigrationService.migrateSingleRecord(tableName, tenant, primaryKeyName, primaryKeyValue);
         ResponseMessage responseMessage = new ResponseMessage();
         responseMessage.setStatus(Status.SUCCESS);
-        responseMessage.setMessage(TRIGGER_SINGLE_RECORD_DATA_MIGRATION + status);
+        responseMessage.setMessage(TRIGGER_DATA_MIGRATION_SUCCESSFULLY);
         return ResponseEntity.ok().body(responseMessage);
     }
 

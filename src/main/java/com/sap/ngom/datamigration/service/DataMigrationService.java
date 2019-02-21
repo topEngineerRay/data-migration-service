@@ -168,7 +168,7 @@ public class DataMigrationService {
             String primaryKey) {
         JdbcCursorItemReader<Map<String, Object>> itemReader = new JdbcCursorItemReader<>();
         itemReader.setDataSource(dataSource);
-        itemReader.setSql("select * from " + tableName + " where" + primaryKeyName + "='" + primaryKey + "'");
+        itemReader.setSql("select * from " + tableName + " where " + primaryKeyName + "='" + primaryKey + "'");
         itemReader.setRowMapper(new ColumnMapRowMapper());
         return itemReader;
     }
@@ -223,7 +223,7 @@ public class DataMigrationService {
         }
     }
 
-    public BatchStatus migrateSingleRecord(String tableName, String tenant, String primaryKeyName,
+    public void migrateSingleRecord(String tableName, String tenant, String primaryKeyName,
             String primaryKeyValue) {
 
         String jobName = tableName + primaryKeyValue + JOB_NAME_SUFFIX;
@@ -233,9 +233,8 @@ public class DataMigrationService {
                 .incrementer(new RunIdIncrementer())
                 .listener(jobCompletionNotificationListener).start(step)
                 .build();
-        JobExecution jobExecution = null;
         try {
-            jobExecution = jobLauncher.run(migrationJob, generateJobParams());
+            jobLauncher.run(migrationJob, generateJobParams());
         } catch (JobExecutionAlreadyRunningException e) {
             throw new RunJobException(e.getMessage());
         } catch (JobRestartException e) {
@@ -245,7 +244,6 @@ public class DataMigrationService {
         } catch (JobParametersInvalidException e) {
             throw new RunJobException(e.getMessage());
         }
-        return jobExecution.getStatus();
     }
 
 }
