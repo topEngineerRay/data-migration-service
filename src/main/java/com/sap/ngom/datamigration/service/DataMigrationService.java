@@ -145,11 +145,38 @@ public class DataMigrationService {
         return tenantSpecificStep;
     }
 
+    private Step createOneStepByPrimaryKey(String table, String tenant, String primaryKeyName, String primaryKeyValue) {
+        String targetNameSpace = dbConfigReader.getTargetNameSpace();
+
+        Step tenantSpecificStep = stepBuilderFactory.get(table + "_" + primaryKeyValue + "_" + "MigrationStep")
+                .listener(new BPStepListener(tenant))
+                .<Map<String, Object>, Map<String, Object>>chunk(CHUNK_SIZE).faultTolerant().noSkip(Exception.class)
+                .skipLimit(SKIP_LIMIT)
+                .reader(buildOneRecordItemReader(dataSource, table, primaryKeyName, primaryKeyValue))
+                .processor(new CustomItemProcessor())
+                .writer(buildItemWriter(detinationDataSource, table, targetNameSpace)).faultTolerant()
+                .noSkip(Exception.class).skipLimit(SKIP_LIMIT)
+                .build();
+
+        return tenantSpecificStep;
+    }
+
     private JdbcCursorItemReader<Map<String, Object>> buildItemReader(final DataSource dataSource, String tableName,
             String tenant) {
         JdbcCursorItemReader<Map<String, Object>> itemReader = new JdbcCursorItemReader<>();
         itemReader.setDataSource(dataSource);
         itemReader.setSql("select * from " + tableName + " where tenant_id ='" + tenant + "'");
+        itemReader.setRowMapper(new ColumnMapRowMapper());
+        return itemReader;
+    }
+
+    private JdbcCursorItemReader<Map<String, Object>> buildOneRecordItemReader(final DataSource dataSource,
+            String tableName,
+            String primaryKeyName,
+            String primaryKey) {
+        JdbcCursorItemReader<Map<String, Object>> itemReader = new JdbcCursorItemReader<>();
+        itemReader.setDataSource(dataSource);
+        itemReader.setSql("select * from " + tableName + " where" + primaryKeyName + "='" + primaryKey + "'");
         itemReader.setRowMapper(new ColumnMapRowMapper());
         return itemReader;
     }
@@ -213,7 +240,27 @@ public class DataMigrationService {
         }
     }
 
-    public Object migrateSingleRecord(String tableName, String primaryKey) {
+    public Object migrateSingleRecord(String tableName, String tenant, String primaryKeyName, String primaryKeyValue) {
+
+        String jobName = tableName + primaryKeyValue +JOB_NAME_SUFFIX;
+        Step step = createOneStepByPrimaryKey(tableName, tenant, primaryKeyName, primaryKeyValue);
+
+        SimpleJob migrationJob = (SimpleJob) jobBuilderFactory.get(jobName)
+                .incrementer(new RunIdIncrementer())
+                .listener(jobCompletionNotificationListener).start(step)
+                .build();
+
+        try {
+            jobLauncher.run(migrationJob, generateJobParams());
+        } catch (JobExecutionAlreadyRunningException e) {
+            throw new RunJobException(e.getMessage());
+        } catch (JobRestartException e) {
+            throw new RunJobException(e.getMessage());
+        } catch (JobInstanceAlreadyCompleteException e) {
+            throw new RunJobException(e.getMessage());
+        } catch (JobParametersInvalidException e) {
+            throw new RunJobException(e.getMessage());
+        }
         return null;
     }
 
