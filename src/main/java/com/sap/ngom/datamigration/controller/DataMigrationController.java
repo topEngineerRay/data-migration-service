@@ -66,6 +66,18 @@ public class DataMigrationController {
         return ResponseEntity.ok().body(responseMessage);
     }
 
+    @PostMapping("/jobs/migrateSingleRecord")
+    public ResponseEntity<ResponseMessage> migrateSingleRecord(@RequestParam final String tableName,
+            @RequestParam final String tenant,
+            @RequestParam final String primaryKeyName,
+            @RequestParam final String primaryKeyValue) {
+
+        dataMigrationService.migrateSingleRecord(tableName, tenant, primaryKeyName, primaryKeyValue);
+        ResponseMessage responseMessage = new ResponseMessage();
+        responseMessage.setStatus(Status.SUCCESS);
+        responseMessage.setMessage(TRIGGER_DATA_MIGRATION_SUCCESSFULLY);
+        return ResponseEntity.ok().body(responseMessage);
+    }
     @PostMapping("/data/cleanup/{tableName}")
     public ResponseEntity<ResponseMessage> dataCleanup4OneTable(@PathVariable final String tableName) {
         dataCleanupService.cleanData4OneTable(tableName);
@@ -103,19 +115,6 @@ public class DataMigrationController {
     @PostMapping("/data/verification/{tableName}")
     public ResponseEntity<ResponseMessage> dataVerificationForAllTable(@PathVariable("tableName")final String tableName){
         return ResponseEntity.status(200).body(dataVerificationService.dataVerificationForOneTable(tableName));
-    }
-
-    @PostMapping("/migrateSingleRecord")
-    public ResponseEntity<ResponseMessage> migrateSingleRecord(@RequestParam final String tableName,
-            @RequestParam final String tenant,
-            @RequestParam final String primaryKeyName,
-            @RequestParam final String primaryKeyValue) {
-
-        dataMigrationService.migrateSingleRecord(tableName, tenant, primaryKeyName, primaryKeyValue);
-        ResponseMessage responseMessage = new ResponseMessage();
-        responseMessage.setStatus(Status.SUCCESS);
-        responseMessage.setMessage(TRIGGER_DATA_MIGRATION_SUCCESSFULLY);
-        return ResponseEntity.ok().body(responseMessage);
     }
 
     @PostMapping("/initialization")

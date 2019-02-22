@@ -23,6 +23,7 @@ import org.springframework.batch.item.database.JdbcCursorItemReader;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskExecutor;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.ColumnMapRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -142,12 +143,11 @@ public class DataMigrationService {
 
         Step tenantSpecificStep = stepBuilderFactory.get(table + "_" + primaryKeyValue + "_" + "MigrationStep")
                 .listener(new BPStepListener(tenant))
-                .<Map<String, Object>, Map<String, Object>>chunk(CHUNK_SIZE).faultTolerant().noSkip(Exception.class)
-                .skipLimit(SKIP_LIMIT)
+                .<Map<String, Object>, Map<String, Object>>chunk(CHUNK_SIZE).faultTolerant().skip(DuplicateKeyException.class)
                 .reader(buildOneRecordItemReader(dataSource, table, primaryKeyName, primaryKeyValue))
                 .processor(new CustomItemProcessor())
                 .writer(buildItemWriter(detinationDataSource, table, targetNameSpace)).faultTolerant()
-                .noSkip(Exception.class).skipLimit(SKIP_LIMIT)
+                .skip(DuplicateKeyException.class)
                 .build();
 
         return tenantSpecificStep;
