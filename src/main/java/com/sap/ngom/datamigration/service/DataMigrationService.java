@@ -135,12 +135,6 @@ public class DataMigrationService {
         return batchJobParameterHolder.acquireJobLock(tableName);
     }
 
-    private JobParameters getJobParameters(String jobParameter, String jobName) {
-        JobParametersBuilder jobBuilder = new JobParametersBuilder();
-        jobBuilder.addString(jobName, jobParameter);
-        return jobBuilder.toJobParameters();
-    }
-
     private void tableNameValidation(String tableName) {
         if (!dbConfigReader.getSourceTableNames().contains(tableName)) {
             throw new SourceTableNotDefinedException("There is no table:" + tableName + " in the database");

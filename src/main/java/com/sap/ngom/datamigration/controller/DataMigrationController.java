@@ -1,23 +1,17 @@
 package com.sap.ngom.datamigration.controller;
 
-import com.sap.ngom.datamigration.configuration.BatchJobParameterHolder;
-import com.sap.ngom.datamigration.exception.JobAlreadyRuningException;
 import com.sap.ngom.datamigration.model.JobStatus;
 import com.sap.ngom.datamigration.model.ResponseMessage;
 import com.sap.ngom.datamigration.model.Status;
 import com.sap.ngom.datamigration.service.*;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Bean;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.client.RestTemplate;
 
 import java.util.List;
 import java.util.Set;
-
-import java.util.List;
 
 @RequestMapping
 @Controller
