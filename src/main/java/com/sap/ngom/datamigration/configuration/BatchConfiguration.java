@@ -14,14 +14,17 @@ import org.springframework.batch.item.database.JdbcPagingItemReader;
 import org.springframework.batch.item.database.support.SqlPagingQueryProviderFactoryBean;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.jdbc.core.ColumnMapRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.datasource.DataSourceTransactionManager;
+import org.springframework.jdbc.datasource.init.DataSourceInitializer;
 
 import javax.sql.DataSource;
 import java.util.Map;
@@ -115,8 +118,4 @@ public class BatchConfiguration {
         return new SimpleAsyncTaskExecutor("MigrationService");
     }
 
-    @Bean("batchDataJDBCTemplate")
-    public JdbcTemplate sourcJdbcTemplate(){
-        return new JdbcTemplate(dataSource);
-    }
 }

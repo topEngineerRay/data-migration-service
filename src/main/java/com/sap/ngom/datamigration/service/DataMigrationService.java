@@ -1,15 +1,17 @@
 package com.sap.ngom.datamigration.service;
 
+import com.sap.ngom.datamigration.configuration.BatchJobParameterHolder;
 import com.sap.ngom.datamigration.exception.RunJobException;
 import com.sap.ngom.datamigration.exception.SourceTableNotDefinedException;
 import com.sap.ngom.datamigration.listener.BPStepListener;
 import com.sap.ngom.datamigration.listener.JobCompletionNotificationListener;
 import com.sap.ngom.datamigration.model.JobStatus;
-import com.sap.ngom.datamigration.exception.SourceTableNotDefinedException;
 import com.sap.ngom.datamigration.processor.CustomItemProcessor;
 import com.sap.ngom.datamigration.util.DBConfigReader;
 import com.sap.ngom.datamigration.util.TenantHelper;
 import com.sap.ngom.datamigration.writer.GenericItemWriter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.batch.core.*;
 import org.springframework.batch.core.configuration.annotation.JobBuilderFactory;
 import org.springframework.batch.core.configuration.annotation.StepBuilderFactory;
@@ -18,27 +20,23 @@ import org.springframework.batch.core.launch.support.RunIdIncrementer;
 import org.springframework.batch.core.launch.support.SimpleJobLauncher;
 import org.springframework.batch.core.repository.JobExecutionAlreadyRunningException;
 import org.springframework.batch.core.repository.JobInstanceAlreadyCompleteException;
+import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.repository.JobRestartException;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.database.JdbcCursorItemReader;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskExecutor;
-import org.springframework.dao.EmptyResultDataAccessException;
-import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.ColumnMapRowMapper;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
 import javax.sql.DataSource;
-import java.util.ArrayList;
-import java.util.Date;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Service
 public class DataMigrationService {
+    private static final Logger log = LoggerFactory.getLogger(DataMigrationService.class);
 
     private static final int SKIP_LIMIT = 10;
     public static final int CHUNK_SIZE = 500;
@@ -64,7 +62,10 @@ public class DataMigrationService {
     private JobCompletionNotificationListener jobCompletionNotificationListener;
 
     @Autowired
-    private TenantHelper tenantHelper;
+    TenantHelper tenantHelper;
+
+    @Autowired
+    JobRepository jobRepository;
 
     @Autowired
     private DBConfigReader dbConfigReader;
@@ -73,8 +74,7 @@ public class DataMigrationService {
     private TaskExecutor simpleAsyncTaskExecutor;
 
     @Autowired
-    @Qualifier("batchDataJDBCTemplate")
-    private JdbcTemplate sourcJdbcTemplate;
+    private BatchJobParameterHolder batchJobParameterHolder;
 
     private static String JOB_NAME_SUFFIX = "_MigrationJob";
 
@@ -103,7 +103,7 @@ public class DataMigrationService {
 
 
             try {
-                jobLauncher.run(migrationJob, generateJobParams());
+                jobLauncher.run(migrationJob, getJobParameters(tableName));
             } catch (JobExecutionAlreadyRunningException e) {
                 throw new RunJobException(e.getMessage());
             } catch (JobRestartException e) {
@@ -117,10 +117,20 @@ public class DataMigrationService {
 
     }
 
-    private JobParameters getJobParameters(String jobParameter, String jobName) {
+    private JobParameters getJobParameters(String tableName){
         JobParametersBuilder jobBuilder = new JobParametersBuilder();
-        jobBuilder.addString(jobName, jobParameter);
+        jobBuilder.addString(tableName,batchJobParameterHolder.getIncreasingParameter(tableName).toString());
         return jobBuilder.toJobParameters();
+    }
+
+    private JobParameters getCurrentRunntingJobParameters(String tableName){
+        JobParametersBuilder jobBuilder = new JobParametersBuilder();
+        jobBuilder.addString(tableName,batchJobParameterHolder.getCurrentParameter(tableName).toString());
+        return jobBuilder.toJobParameters();
+    }
+
+    public boolean isJobRunningOnTable(String tableName){
+        return batchJobParameterHolder.acquireJobLock(tableName);
     }
 
     private void tableNameValidation(String tableName) {
@@ -168,18 +178,17 @@ public class DataMigrationService {
     public JobStatus getJobStatus(String tableName) {
         tableNameValidation(tableName);
 
-        String jobName = tableName + JOB_NAME_SUFFIX;
-        String jobStatus = getLastExecutionStatus(jobName);
+        String jobStatus = getLastExecutionStatus(tableName);
         return JobStatus.builder().table(tableName).jobStatus(jobStatus).build();
     }
 
-    private String getLastExecutionStatus(String jobName) {
+    private String getLastExecutionStatus (String tableName){
         String executionStatus;
-        try{
-            executionStatus = sourcJdbcTemplate.queryForObject("SELECT STATUS FROM batch_job_execution WHERE job_instance_id IN (SELECT JOB_INSTANCE_ID FROM batch_job_instance WHERE job_name = ?) ORDER BY start_time DESC LIMIT 1",
-                new Object[]{jobName}, String.class );
-        }catch (EmptyResultDataAccessException exception){
+        JobExecution jobExecution = jobRepository.getLastJobExecution(tableName+JOB_NAME_SUFFIX, getCurrentRunntingJobParameters(tableName));
+        if(null == jobExecution){
             executionStatus = "No Job Triggered Yet!";
+        }else{
+            executionStatus = jobExecution.getStatus().toString();
         }
         return executionStatus;
     }
@@ -191,17 +200,25 @@ public class DataMigrationService {
             return jobStatuses;
         }
         for (String sourceTable : sourceTables) {
-            String executionStatus = getLastExecutionStatus(sourceTable + JOB_NAME_SUFFIX);
+            String executionStatus = getLastExecutionStatus(sourceTable);
             JobStatus jobStatus = JobStatus.builder().table(sourceTable).jobStatus(executionStatus).build();
             jobStatuses.add(jobStatus);
         }
         return jobStatuses;
     }
     
-    public void triggerAllMigrationJobs() {
+    public Set<String> triggerAllMigrationJobs() {
+        Set<String> alreadyTriggeredTables = new HashSet<>();
         for(String tableName:dbConfigReader.getSourceTableNames()){
-            triggerOneMigrationJob(tableName);
+            if(isJobRunningOnTable(tableName)){
+                alreadyTriggeredTables.add(tableName);
+                log.info("Migration job of table: " + tableName + "skipped from trigger all jobs.");
+            }else{
+                triggerOneMigrationJob(tableName);
+                log.info("Migration job of table: " + tableName + "triggered from trigger all jobs.");
+            }
         }
+        return alreadyTriggeredTables;
     }
 
 }
