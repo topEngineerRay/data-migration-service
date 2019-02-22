@@ -1,12 +1,10 @@
 package com.sap.ngom.datamigration.configuration;
 
-import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.cloud.config.java.AbstractCloudConfig;
 import org.springframework.cloud.service.PooledServiceConnectorConfig;
 import org.springframework.cloud.service.relational.DataSourceConfig;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
 import org.springframework.context.annotation.Profile;
 
 import javax.sql.DataSource;
@@ -30,12 +28,6 @@ public class CloudConfiguration extends AbstractCloudConfig {
         final DataSourceConfig dbConfig = new DataSourceConfig(poolConfig, null);
         final DataSource dataSource = connectionFactory().dataSource(dbConfig);
         return dataSource;
-    }
-
-    @Bean("batchConfigDataSource")
-    @Primary
-    public DataSource batchConfigH2DataSource() {
-        return DataSourceBuilder.create().url("jdbc:h2:mem:testdb").driverClassName("org.h2.Driver").username("sa").password("").build();
     }
 
 }

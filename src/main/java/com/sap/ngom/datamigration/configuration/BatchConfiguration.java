@@ -17,6 +17,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.jdbc.DataSourceBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Primary;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.core.task.SimpleAsyncTaskExecutor;
 import org.springframework.core.task.TaskExecutor;
@@ -121,4 +122,9 @@ public class BatchConfiguration {
         return new SimpleAsyncTaskExecutor("MigrationService");
     }
 
+    @Bean("batchConfigDataSource")
+    @Primary
+    public DataSource batchConfigH2DataSource() {
+        return DataSourceBuilder.create().url("jdbc:h2:mem:testdb").driverClassName("org.h2.Driver").username("sa").password("").build();
+    }
 }
