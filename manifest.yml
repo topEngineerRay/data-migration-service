@@ -1,11 +1,11 @@
 ---
 applications:
 - name: datamigration-business-partner
-  memory: 1G
+  memory: 2G
   instances: 1
   path: target/data-migration-service-1.0-SNAPSHOT.jar
   services:
     - postgresql-business-partner
-    - managed-hana-business-partner
+    - managed-hana-business-partner-backup
   env:
-    VAULT_AUTH_TOKEN: "${vault.generateToken()}"
+    VAULT_AUTH_TOKEN: "a97a8169-71fb-885e-9f00-1164d9695417"

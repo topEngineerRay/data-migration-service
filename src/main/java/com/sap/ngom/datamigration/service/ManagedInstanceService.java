@@ -27,7 +27,7 @@ public class ManagedInstanceService {
     MultiTenantDataSourceHolder multiTenantDataSourceHolder;
 
     public void deleteAll() throws Exception{
-        ExecutorService executorService = Executors.newFixedThreadPool(10);
+        ExecutorService executorService = Executors.newFixedThreadPool(1);
         InstanceManagerClient imClient = instanceManagerUtil.getInstanceManagerClient();
         List<ManagedServiceInstance> managedServiceInstances = imClient.getManagedInstances();
 
@@ -41,7 +41,8 @@ public class ManagedInstanceService {
                 if(msi.getId().startsWith("15") || msi.getId().startsWith("2018") ||
                         msi.getId().startsWith("ContactName") || msi.getId().startsWith("CustomRef") ||
                         msi.getId().startsWith("CustomerName") || msi.getId().startsWith("PubCustomRef") ||
-                        msi.getId().startsWith("UICustomRef") || msi.getStatus() == OperationStatus.CREATION_FAILED) {
+                        msi.getId().startsWith("UICustomRef") || msi.getStatus() == OperationStatus.CREATION_FAILED ||
+                        msi.getStatus() == OperationStatus.DELETION_FAILED) {
                     try {
                         imClient.deleteManagedInstance(msi.getId());
                         multiTenantDataSourceHolder.deleteDataSource(msi.getId());

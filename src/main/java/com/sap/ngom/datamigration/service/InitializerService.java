@@ -95,13 +95,12 @@ public class InitializerService {
                     // call HDI deployer
                     try {
                         hdiDeployerClient.executeHDIDeployment(managedServiceInstance);
+                        dataSource = hdiDeployerClient.createDataSource(managedServiceInstance);
+                        multiTenantDataSourceHolder.storeDataSource(tenantId, dataSource);
                     } catch (HDIDeploymentException e) {
                         hasError.set(true);
                         log.error("Determine data source failed", e);
                     }
-                    dataSource = hdiDeployerClient.createDataSource(managedServiceInstance);
-                    multiTenantDataSourceHolder.storeDataSource(tenantId, dataSource);
-
                 }
 
                 tenantLatch.countDown();
@@ -125,7 +124,7 @@ public class InitializerService {
     public void initialize4AllTables() throws Exception{
         List<String> tableList = dbConfigReader.getSourceTableNames();
 
-        ExecutorService executorService = Executors.newFixedThreadPool(THREADS_NUMBERS);
+        ExecutorService executorService = Executors.newFixedThreadPool(1);
         CountDownLatch tableLatch = new CountDownLatch(tableList.size());
         final AtomicBoolean hasError = new AtomicBoolean(false);
 
