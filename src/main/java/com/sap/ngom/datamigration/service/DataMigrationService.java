@@ -6,6 +6,7 @@ import com.sap.ngom.datamigration.exception.SourceTableNotDefinedException;
 import com.sap.ngom.datamigration.listener.BPStepListener;
 import com.sap.ngom.datamigration.listener.JobCompletionNotificationListener;
 import com.sap.ngom.datamigration.model.JobStatus;
+import com.sap.ngom.datamigration.model.MigrateRecord;
 import com.sap.ngom.datamigration.processor.CustomItemProcessor;
 import com.sap.ngom.datamigration.util.DBConfigReader;
 import com.sap.ngom.datamigration.util.TenantHelper;
@@ -42,7 +43,6 @@ public class DataMigrationService {
 
     private static final int SKIP_LIMIT = 10;
     public static final int CHUNK_SIZE = 500;
-    public static final String SINGLE_RECORD = "_SingleRecord";
 
     @Autowired
     private SimpleJobLauncher jobLauncher;
@@ -103,7 +103,6 @@ public class DataMigrationService {
                     .listener(jobCompletionNotificationListener).start(stepList.get(0))
                     .build();
             migrationJob.setSteps(stepList);
-
 
             try {
                 jobLauncher.run(migrationJob, getJobParameters(tableName));
@@ -249,17 +248,24 @@ public class DataMigrationService {
         }
         return alreadyTriggeredTables;
     }
+    
+    public void migrateSepecifcRecords(List<MigrateRecord> migrateRecords) {
 
-    public void migrateSingleRecord(String tableName, String tenant, String primaryKeyName,
-            String primaryKeyValue) {
+        List<Step> stepList = new ArrayList<Step>();
+        String jobName =  "SepecifcRecords" + JOB_NAME_SUFFIX;
 
-        String jobName = tableName + SINGLE_RECORD + JOB_NAME_SUFFIX;
-        Step step = createOneStepByPrimaryKey(tableName, tenant, primaryKeyName, primaryKeyValue);
+        for(MigrateRecord migrateRecord : migrateRecords){
+            Step step = createOneStepByPrimaryKey(migrateRecord.tableName, migrateRecord.tenant, migrateRecord.primaryKeyName, migrateRecord.primaryKeyValue);
+            stepList.add(step);
+        }
 
         SimpleJob migrationJob = (SimpleJob) jobBuilderFactory.get(jobName)
                 .incrementer(new RunIdIncrementer())
-                .listener(jobCompletionNotificationListener).start(step)
+                .listener(jobCompletionNotificationListener).start(stepList.get(0))
                 .build();
+
+        migrationJob.setSteps(stepList);
+
         try {
             jobLauncher.run(migrationJob, generateJobParams());
         } catch (JobExecutionAlreadyRunningException e) {
@@ -271,6 +277,6 @@ public class DataMigrationService {
         } catch (JobParametersInvalidException e) {
             throw new RunJobException(e.getMessage());
         }
-    }
 
+    }
 }

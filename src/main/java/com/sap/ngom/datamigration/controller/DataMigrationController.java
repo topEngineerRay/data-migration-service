@@ -1,6 +1,7 @@
 package com.sap.ngom.datamigration.controller;
 
 import com.sap.ngom.datamigration.model.JobStatus;
+import com.sap.ngom.datamigration.model.MigrateRecord;
 import com.sap.ngom.datamigration.model.ResponseMessage;
 import com.sap.ngom.datamigration.model.Status;
 import com.sap.ngom.datamigration.service.*;
@@ -79,13 +80,10 @@ public class DataMigrationController {
         }
     }
 
-    @PostMapping("/jobs/migrateSingleRecord")
-    public ResponseEntity<ResponseMessage> migrateSingleRecord(@RequestParam final String tableName,
-            @RequestParam final String tenant,
-            @RequestParam final String primaryKeyName,
-            @RequestParam final String primaryKeyValue) {
+    @PostMapping("/jobs/migrateSepecifcRecords")
+    public ResponseEntity<ResponseMessage> migrateSepecifcRecords(@RequestBody List<MigrateRecord> migrateRecords) {
 
-        dataMigrationService.migrateSingleRecord(tableName, tenant, primaryKeyName, primaryKeyValue);
+        dataMigrationService.migrateSepecifcRecords(migrateRecords);
         ResponseMessage responseMessage = new ResponseMessage();
         responseMessage.setStatus(Status.SUCCESS);
         responseMessage.setMessage(TRIGGER_DATA_MIGRATION_SUCCESSFULLY);
