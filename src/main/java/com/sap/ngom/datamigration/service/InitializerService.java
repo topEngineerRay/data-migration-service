@@ -1,6 +1,5 @@
 package com.sap.ngom.datamigration.service;
 
-import com.sap.ngom.datamigration.exception.DataCleanupException;
 import com.sap.ngom.datamigration.util.DBConfigReader;
 import com.sap.ngom.datamigration.util.InstanceManagerUtil;
 import com.sap.ngom.datamigration.util.TenantHelper;
@@ -8,7 +7,6 @@ import com.sap.ngom.util.hana.db.configuration.MultiTenantDataSourceHolder;
 import com.sap.ngom.util.hana.db.exceptions.HDIDeploymentException;
 import com.sap.ngom.util.hana.db.exceptions.HDIDeploymentInitializerException;
 import com.sap.ngom.util.hana.db.exceptions.HanaDataSourceDeterminationException;
-import com.sap.ngom.util.hana.db.exceptions.InstanceManagerException;
 import com.sap.ngom.util.hana.db.utils.HDIDeployerClient;
 import com.sap.xsa.core.instancemanager.client.*;
 import lombok.extern.log4j.Log4j2;
@@ -44,8 +42,7 @@ public class InitializerService {
 
     private InstanceManagerUtil instanceManagerUtil = new InstanceManagerUtil();
 
-//    final BlockingQueue<ManagedServiceInstance> asyncResult = new SynchronousQueue<>();
-    private Map<String, BlockingQueue<ManagedServiceInstance>> tenantAsyncResults = new HashMap<>();
+    private Map<String, BlockingQueue<ManagedServiceInstance>> tenantAsyncResults = new ConcurrentHashMap<>();
 
     private static final Integer THREADS_NUMBERS = 10;
 
