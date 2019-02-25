@@ -44,7 +44,8 @@ public class InitializerService {
 
     private InstanceManagerUtil instanceManagerUtil = new InstanceManagerUtil();
 
-    final BlockingQueue<ManagedServiceInstance> asyncResult = new SynchronousQueue<>();
+//    final BlockingQueue<ManagedServiceInstance> asyncResult = new SynchronousQueue<>();
+    private Map<String, BlockingQueue<ManagedServiceInstance>> tenantAsyncResults = new HashMap<>();
 
     private static final Integer THREADS_NUMBERS = 10;
 
@@ -72,6 +73,9 @@ public class InitializerService {
                         e.printStackTrace();
                     }
                     if (managedServiceInstance == null) { //new tenant to be created
+                        final BlockingQueue<ManagedServiceInstance> asyncResult = new SynchronousQueue<>();
+                        tenantAsyncResults.put(tenantId, asyncResult);
+
                         Map<String, Object> provisioningParameters = new HashMap<>();
                         InstanceCreationOptions instanceCreationOptions = new InstanceCreationOptions();
                         instanceCreationOptions = instanceCreationOptions.withProvisioningParameters(provisioningParameters);
@@ -83,6 +87,7 @@ public class InitializerService {
                         try {
                             Object instanceManager = asyncResult.take();
                             managedServiceInstance = (ManagedServiceInstance) instanceManager;
+                            log.info("Created managed instance for tenant: {} {}", tenantId, managedServiceInstance.getId());
                         } catch (InterruptedException e) {
                             log.warn("Interrupted!", e);
                             // Restore interrupted state...
@@ -95,13 +100,16 @@ public class InitializerService {
                     // call HDI deployer
                     try {
                         hdiDeployerClient.executeHDIDeployment(managedServiceInstance);
+                        dataSource = hdiDeployerClient.createDataSource(managedServiceInstance);
+                        if(managedServiceInstance.getId().equals(tenantId)) {
+                            multiTenantDataSourceHolder.storeDataSource(tenantId, dataSource);
+                        } else {
+                            log.error("Map dataSource error: {} {}", tenantId, managedServiceInstance.getId());
+                        }
                     } catch (HDIDeploymentException e) {
                         hasError.set(true);
                         log.error("Determine data source failed", e);
                     }
-                    dataSource = hdiDeployerClient.createDataSource(managedServiceInstance);
-                    multiTenantDataSourceHolder.storeDataSource(tenantId, dataSource);
-
                 }
 
                 tenantLatch.countDown();
@@ -125,7 +133,7 @@ public class InitializerService {
     public void initialize4AllTables() throws Exception{
         List<String> tableList = dbConfigReader.getSourceTableNames();
 
-        ExecutorService executorService = Executors.newFixedThreadPool(THREADS_NUMBERS);
+        ExecutorService executorService = Executors.newFixedThreadPool(1);
         CountDownLatch tableLatch = new CountDownLatch(tableList.size());
         final AtomicBoolean hasError = new AtomicBoolean(false);
 
@@ -157,6 +165,7 @@ public class InitializerService {
     private InstanceManagerClient.CreationCallback creationManagedInstanceCallback = new InstanceManagerClient.CreationCallback() {
         @Override
         public void onCreationSuccess(ManagedServiceInstance managedServiceInstance) {
+            BlockingQueue<ManagedServiceInstance> asyncResult = tenantAsyncResults.get(managedServiceInstance.getId());
             try {
                 asyncResult.put(managedServiceInstance);
             } catch (InterruptedException e) {
@@ -168,6 +177,13 @@ public class InitializerService {
         @Override
         public void onCreationError(String s, String s1) {
             log.error("Create managed instance error: {} {}", s, s1);
+            BlockingQueue<ManagedServiceInstance> asyncResult = tenantAsyncResults.get(s);
+            try {
+                asyncResult.put(null);
+            } catch (InterruptedException e) {
+                log.error("Interrupted!", e);
+                Thread.currentThread().interrupt();
+            }
         }
     };
 
