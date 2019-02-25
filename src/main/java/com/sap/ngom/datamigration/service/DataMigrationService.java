@@ -41,6 +41,7 @@ public class DataMigrationService {
 
     private static final int SKIP_LIMIT = 10;
     public static final int CHUNK_SIZE = 500;
+    public static final String SINGLE_RECORD = "_SingleRecord";
 
     @Autowired
     private SimpleJobLauncher jobLauncher;
@@ -226,7 +227,7 @@ public class DataMigrationService {
     public void migrateSingleRecord(String tableName, String tenant, String primaryKeyName,
             String primaryKeyValue) {
 
-        String jobName = tableName + primaryKeyValue + JOB_NAME_SUFFIX;
+        String jobName = tableName + SINGLE_RECORD + JOB_NAME_SUFFIX;
         Step step = createOneStepByPrimaryKey(tableName, tenant, primaryKeyName, primaryKeyValue);
 
         SimpleJob migrationJob = (SimpleJob) jobBuilderFactory.get(jobName)
