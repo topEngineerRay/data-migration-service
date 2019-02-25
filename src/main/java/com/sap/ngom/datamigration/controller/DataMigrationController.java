@@ -12,6 +12,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Set;
 
 @RequestMapping
 @Controller
@@ -33,6 +34,7 @@ public class DataMigrationController {
     @Autowired
     InitializerService initializerService;
 
+
     @GetMapping("/jobs/{tableName}")
     @ResponseBody
     public JobStatus getOneJobStatus(@PathVariable("tableName")final String tableName) {
@@ -45,25 +47,36 @@ public class DataMigrationController {
         return dataMigrationService.getAllJobsStatus();
     }
 
+
     @PostMapping("/jobs")
     public ResponseEntity triggerMigration()
     {
-        dataMigrationService.triggerAllMigrationJobs();
+
+        Set<String> alreadyTriggeredTables = dataMigrationService.triggerAllMigrationJobs();
 
         ResponseMessage responseMessage = new ResponseMessage();
         responseMessage.setStatus(Status.SUCCESS);
-        responseMessage.setMessage(TRIGGER_DATA_MIGRATION_SUCCESSFULLY);
+        String reponstMessage = TRIGGER_DATA_MIGRATION_SUCCESSFULLY;
+        if(alreadyTriggeredTables.size()>0){
+            reponstMessage += " Tables: " + alreadyTriggeredTables.toString() + " migration will not be triggered, since there are other jobs running.";
+        }
+        responseMessage.setMessage(reponstMessage);
         return ResponseEntity.ok().body(responseMessage);
     }
 
     @PostMapping("/jobs/{tableName}")
     public ResponseEntity triggerTableMigration(@PathVariable("tableName")final String tableName) {
-        dataMigrationService.triggerOneMigrationJob(tableName);
-
         ResponseMessage responseMessage = new ResponseMessage();
-        responseMessage.setStatus(Status.SUCCESS);
-        responseMessage.setMessage(TRIGGER_DATA_MIGRATION_SUCCESSFULLY);
-        return ResponseEntity.ok().body(responseMessage);
+        if(dataMigrationService.isJobRunningOnTable(tableName)){
+            responseMessage.setStatus(Status.FAILURE);
+            responseMessage.setMessage("Job can't be executed, currently another job is running for this table");
+            return ResponseEntity.ok().body(responseMessage);
+        }else{
+            dataMigrationService.triggerOneMigrationJob(tableName);
+            responseMessage.setStatus(Status.SUCCESS);
+            responseMessage.setMessage(TRIGGER_DATA_MIGRATION_SUCCESSFULLY);
+            return ResponseEntity.ok().body(responseMessage);
+        }
     }
 
     @PostMapping("/jobs/migrateSingleRecord")
@@ -111,6 +124,7 @@ public class DataMigrationController {
     public ResponseEntity<ResponseMessage> dataVerificationForOneTable(){
         return ResponseEntity.status(200).body(dataVerificationService.dataVerificationForAllTable());
     }
+
 
     @PostMapping("/data/verification/{tableName}")
     public ResponseEntity<ResponseMessage> dataVerificationForAllTable(@PathVariable("tableName")final String tableName){
