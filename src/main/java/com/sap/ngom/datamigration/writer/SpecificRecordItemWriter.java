@@ -33,15 +33,7 @@ public class SpecificRecordItemWriter implements ItemWriter<Map<String,Object>> 
                 .withTableName(buildHanaTableName(nameSpace,table));
         //when there is a duplicated key exception, method execute and exectueBatch will throw different exception
         list.forEach(item ->{
-            try {
                 jdbcInsert.execute(item);
-            }catch(Exception exception){
-                if(exception.getMessage().contains("unique constraint violated")){
-                    throw new DuplicateKeyException(exception.getMessage());
-                }else {
-                    throw exception;
-                }
-            }
         });
     }
 
