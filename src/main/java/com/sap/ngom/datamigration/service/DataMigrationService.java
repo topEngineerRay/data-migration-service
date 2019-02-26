@@ -1,5 +1,6 @@
 package com.sap.ngom.datamigration.service;
 
+import com.sap.db.jdbc.exceptions.SQLIntegrityConstraintViolationExceptionSapDB;
 import com.sap.ngom.datamigration.configuration.BatchJobParameterHolder;
 import com.sap.ngom.datamigration.exception.RunJobException;
 import com.sap.ngom.datamigration.exception.SourceTableNotDefinedException;
@@ -11,6 +12,7 @@ import com.sap.ngom.datamigration.processor.CustomItemProcessor;
 import com.sap.ngom.datamigration.util.DBConfigReader;
 import com.sap.ngom.datamigration.util.TenantHelper;
 import com.sap.ngom.datamigration.writer.GenericItemWriter;
+import com.sap.ngom.datamigration.writer.SpecificRecordItemWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.batch.core.*;
@@ -161,10 +163,12 @@ public class DataMigrationService {
 
         Step tenantSpecificStep = stepBuilderFactory.get(table + "_" + primaryKeyValue + "_" + "MigrationStep")
                 .listener(new BPStepListener(tenant))
-                .<Map<String, Object>, Map<String, Object>>chunk(CHUNK_SIZE).faultTolerant().skip(DuplicateKeyException.class)
+                .<Map<String, Object>, Map<String, Object>>chunk(CHUNK_SIZE).faultTolerant()
+                .skip(DuplicateKeyException.class).skip(
+                        SQLIntegrityConstraintViolationExceptionSapDB.class)
                 .reader(buildOneRecordItemReader(dataSource, table, primaryKeyName, primaryKeyValue))
                 .processor(new CustomItemProcessor())
-                .writer(buildItemWriter(detinationDataSource, table, targetNameSpace)).faultTolerant()
+                .writer(new SpecificRecordItemWriter(detinationDataSource, table, targetNameSpace)).faultTolerant()
                 .skip(DuplicateKeyException.class)
                 .build();
 
@@ -247,14 +251,15 @@ public class DataMigrationService {
         }
         return alreadyTriggeredTables;
     }
-    
-    public void migrateSepecifcRecords(List<MigrateRecord> migrateRecords) {
+
+    public void migrateSpecificRecords(List<MigrateRecord> migrateRecords) {
 
         List<Step> stepList = new ArrayList<Step>();
-        String jobName =  "SepecifcRecords" + JOB_NAME_SUFFIX;
+        String jobName = "SepecifcRecords" + JOB_NAME_SUFFIX;
 
-        for(MigrateRecord migrateRecord : migrateRecords){
-            Step step = createOneStepByPrimaryKey(migrateRecord.tableName, migrateRecord.tenant, migrateRecord.primaryKeyName, migrateRecord.primaryKeyValue);
+        for (MigrateRecord migrateRecord : migrateRecords) {
+            Step step = createOneStepByPrimaryKey(migrateRecord.tableName, migrateRecord.tenant,
+                    migrateRecord.primaryKeyName, migrateRecord.primaryKeyValue);
             stepList.add(step);
         }
 

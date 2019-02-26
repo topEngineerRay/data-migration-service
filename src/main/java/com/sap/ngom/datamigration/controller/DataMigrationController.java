@@ -79,10 +79,10 @@ public class DataMigrationController {
         }
     }
 
-    @PostMapping("/jobs/migrateSepecifcRecords")
-    public ResponseEntity<ResponseMessage> migrateSepecifcRecords(@RequestBody List<MigrateRecord> migrateRecords) {
+    @PostMapping("/jobs/migrateSpecificRecords")
+    public ResponseEntity<ResponseMessage> migrateSpecificRecords(@RequestBody List<MigrateRecord> migrateRecords) {
 
-        dataMigrationService.migrateSepecifcRecords(migrateRecords);
+        dataMigrationService.migrateSpecificRecords(migrateRecords);
         ResponseMessage responseMessage = new ResponseMessage();
         responseMessage.setStatus(Status.SUCCESS);
         responseMessage.setMessage(TRIGGER_DATA_MIGRATION_SUCCESSFULLY);

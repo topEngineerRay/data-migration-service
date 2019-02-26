@@ -30,7 +30,6 @@ public class GenericItemWriter implements ItemWriter<Map<String,Object>> {
                 .withTableName(buildHanaTableName(nameSpace,table));
 
         jdbcInsert.executeBatch(list.toArray(new Map[0]));
-
     }
 
     private String[] getColumns(List<? extends Map<String, Object>> list) {
