@@ -9,16 +9,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class SpecificRecordItemWriter implements ItemWriter<Map<String,Object>> {
-
-    private DataSource dataSource;
-    private String table;
-    private String nameSpace;
+public class SpecificRecordItemWriter extends BasicItemWriter {
 
     public SpecificRecordItemWriter(DataSource dataSource, String table, String nameSpace) {
-        this.dataSource = dataSource;
-        this.table = table;
-        this.nameSpace = nameSpace;
+        super(dataSource, table, nameSpace);
     }
 
     @Override
@@ -37,14 +31,5 @@ public class SpecificRecordItemWriter implements ItemWriter<Map<String,Object>> 
         });
     }
 
-    private String[] getColumns(List<? extends Map<String, Object>> list) {
-        Map map = list.get(0);
-        Set<String> set = map.keySet();
-        set.remove("tenant_id");
-        return set.toArray(new String[set.size()]);
-    }
 
-    private  String buildHanaTableName(String nameSpace,String table){
-        return "\""+ nameSpace + "." + table+"\"";
-    }
 }
