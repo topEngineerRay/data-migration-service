@@ -34,7 +34,7 @@ In this service, there are some endpoints provided to conduct a data migration, 
 |:-------------|:-------------|:-------------|
 | Trigger | POST /jobs | Trigger data migration action for all the configured tables. |
 | Trigger | POST /jobs/{tableName} | Trigger data migration action for one specified table. |
-| Trigger | POST /jobs/migrateSpecificRecords | Trigger data migration action for serval records. |
+| Trigger | POST /jobs/migrateSpecificRecords | Trigger data migration action for several records. |
 | Monitoring | GET /jobs | Check data migration job status for all the configured tables. |
 | Monitoring | GET /jobs/{tableName} | Check data migration job status for one specified table. |
 | Cleanup | POST /data/cleanup | Trigger clean up data in target database for all the configured tables. |

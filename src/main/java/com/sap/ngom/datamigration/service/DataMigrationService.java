@@ -1,6 +1,5 @@
 package com.sap.ngom.datamigration.service;
 
-import com.sap.db.jdbc.exceptions.SQLIntegrityConstraintViolationExceptionSapDB;
 import com.sap.ngom.datamigration.configuration.BatchJobParameterHolder;
 import com.sap.ngom.datamigration.exception.RunJobException;
 import com.sap.ngom.datamigration.exception.SourceTableNotDefinedException;
@@ -164,11 +163,11 @@ public class DataMigrationService {
         Step tenantSpecificStep = stepBuilderFactory.get(table + "_" + primaryKeyValue + "_" + "MigrationStep")
                 .listener(new BPStepListener(tenant))
                 .<Map<String, Object>, Map<String, Object>>chunk(CHUNK_SIZE).faultTolerant()
-                .skip(DuplicateKeyException.class).skipLimit(100)
+                .skip(DuplicateKeyException.class).skipLimit(Integer.MAX_VALUE)
                 .reader(buildOneRecordItemReader(dataSource, table, primaryKeyName, primaryKeyValue))
                 .processor(new CustomItemProcessor())
                 .writer(new SpecificRecordItemWriter(detinationDataSource, table, targetNameSpace)).faultTolerant()
-                .skip(DuplicateKeyException.class).skipLimit(100)
+                .skip(DuplicateKeyException.class).skipLimit(Integer.MAX_VALUE)
                 .build();
 
         return tenantSpecificStep;
@@ -254,7 +253,7 @@ public class DataMigrationService {
     public void migrateSpecificRecords(List<MigrateRecord> migrateRecords) {
 
         List<Step> stepList = new ArrayList<Step>();
-        String jobName = "SepecifcRecords" + JOB_NAME_SUFFIX;
+        String jobName = "specificRecords" + JOB_NAME_SUFFIX;
 
         for (MigrateRecord migrateRecord : migrateRecords) {
             Step step = createOneStepByPrimaryKey(migrateRecord.tableName, migrateRecord.tenant,
