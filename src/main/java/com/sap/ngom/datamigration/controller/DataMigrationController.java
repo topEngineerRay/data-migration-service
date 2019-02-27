@@ -1,6 +1,7 @@
 package com.sap.ngom.datamigration.controller;
 
 import com.sap.ngom.datamigration.model.JobStatus;
+import com.sap.ngom.datamigration.model.MigrateRecord;
 import com.sap.ngom.datamigration.model.ResponseMessage;
 import com.sap.ngom.datamigration.model.Status;
 import com.sap.ngom.datamigration.service.*;
@@ -18,6 +19,7 @@ import java.util.Set;
 public class DataMigrationController {
 
     public static final String TRIGGER_DATA_MIGRATION_SUCCESSFULLY = "Trigger data migration successfully.";
+
     @Autowired DataMigrationService dataMigrationService;
 
     @Autowired
@@ -77,6 +79,15 @@ public class DataMigrationController {
         }
     }
 
+    @PostMapping("/jobs/migrateSpecificRecords")
+    public ResponseEntity<ResponseMessage> migrateSpecificRecords(@RequestBody List<MigrateRecord> migrateRecords) {
+
+        dataMigrationService.migrateSpecificRecords(migrateRecords);
+        ResponseMessage responseMessage = new ResponseMessage();
+        responseMessage.setStatus(Status.SUCCESS);
+        responseMessage.setMessage(TRIGGER_DATA_MIGRATION_SUCCESSFULLY);
+        return ResponseEntity.ok().body(responseMessage);
+    }
     @PostMapping("/data/cleanup/{tableName}")
     public ResponseEntity<ResponseMessage> dataCleanup4OneTable(@PathVariable final String tableName) {
         dataCleanupService.cleanData4OneTable(tableName);
@@ -136,4 +147,5 @@ public class DataMigrationController {
         }
         return ResponseEntity.ok().build();
     }
+
 }

@@ -6,10 +6,12 @@ import com.sap.ngom.datamigration.exception.SourceTableNotDefinedException;
 import com.sap.ngom.datamigration.listener.BPStepListener;
 import com.sap.ngom.datamigration.listener.JobCompletionNotificationListener;
 import com.sap.ngom.datamigration.model.JobStatus;
+import com.sap.ngom.datamigration.model.MigrateRecord;
 import com.sap.ngom.datamigration.processor.CustomItemProcessor;
 import com.sap.ngom.datamigration.util.DBConfigReader;
 import com.sap.ngom.datamigration.util.TenantHelper;
 import com.sap.ngom.datamigration.writer.GenericItemWriter;
+import com.sap.ngom.datamigration.writer.SpecificRecordItemWriter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.batch.core.*;
@@ -27,6 +29,7 @@ import org.springframework.batch.item.database.JdbcCursorItemReader;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskExecutor;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.ColumnMapRowMapper;
 import org.springframework.stereotype.Service;
 
@@ -101,7 +104,6 @@ public class DataMigrationService {
                     .build();
             migrationJob.setSteps(stepList);
 
-
             try {
                 jobLauncher.run(migrationJob, getJobParameters(tableName));
             } catch (JobExecutionAlreadyRunningException e) {
@@ -155,11 +157,38 @@ public class DataMigrationService {
         return tenantSpecificStep;
     }
 
+    private Step createOneStepByPrimaryKey(String table, String tenant, String primaryKeyName, String primaryKeyValue) {
+        String targetNameSpace = dbConfigReader.getTargetNameSpace();
+
+        Step tenantSpecificStep = stepBuilderFactory.get(table + "_" + primaryKeyValue + "_" + "MigrationStep")
+                .listener(new BPStepListener(tenant))
+                .<Map<String, Object>, Map<String, Object>>chunk(CHUNK_SIZE).faultTolerant()
+                .skip(DuplicateKeyException.class).skipLimit(Integer.MAX_VALUE)
+                .reader(buildOneRecordItemReader(dataSource, table, primaryKeyName, primaryKeyValue))
+                .processor(new CustomItemProcessor())
+                .writer(new SpecificRecordItemWriter(detinationDataSource, table, targetNameSpace)).faultTolerant()
+                .skip(DuplicateKeyException.class).skipLimit(Integer.MAX_VALUE)
+                .build();
+
+        return tenantSpecificStep;
+    }
+
     private JdbcCursorItemReader<Map<String, Object>> buildItemReader(final DataSource dataSource, String tableName,
             String tenant) {
         JdbcCursorItemReader<Map<String, Object>> itemReader = new JdbcCursorItemReader<>();
         itemReader.setDataSource(dataSource);
         itemReader.setSql("select * from " + tableName + " where tenant_id ='" + tenant + "'");
+        itemReader.setRowMapper(new ColumnMapRowMapper());
+        return itemReader;
+    }
+
+    private JdbcCursorItemReader<Map<String, Object>> buildOneRecordItemReader(final DataSource dataSource,
+            String tableName,
+            String primaryKeyName,
+            String primaryKey) {
+        JdbcCursorItemReader<Map<String, Object>> itemReader = new JdbcCursorItemReader<>();
+        itemReader.setDataSource(dataSource);
+        itemReader.setSql("select * from " + tableName + " where " + primaryKeyName + "='" + primaryKey + "'");
         itemReader.setRowMapper(new ColumnMapRowMapper());
         return itemReader;
     }
@@ -221,4 +250,35 @@ public class DataMigrationService {
         return alreadyTriggeredTables;
     }
 
+    public void migrateSpecificRecords(List<MigrateRecord> migrateRecords) {
+
+        List<Step> stepList = new ArrayList<Step>();
+        String jobName = "specificRecords" + JOB_NAME_SUFFIX;
+
+        for (MigrateRecord migrateRecord : migrateRecords) {
+            Step step = createOneStepByPrimaryKey(migrateRecord.tableName, migrateRecord.tenant,
+                    migrateRecord.primaryKeyName, migrateRecord.primaryKeyValue);
+            stepList.add(step);
+        }
+
+        SimpleJob migrationJob = (SimpleJob) jobBuilderFactory.get(jobName)
+                .incrementer(new RunIdIncrementer())
+                .listener(jobCompletionNotificationListener).start(stepList.get(0))
+                .build();
+
+        migrationJob.setSteps(stepList);
+
+        try {
+            jobLauncher.run(migrationJob, generateJobParams());
+        } catch (JobExecutionAlreadyRunningException e) {
+            throw new RunJobException(e.getMessage());
+        } catch (JobRestartException e) {
+            throw new RunJobException(e.getMessage());
+        } catch (JobInstanceAlreadyCompleteException e) {
+            throw new RunJobException(e.getMessage());
+        } catch (JobParametersInvalidException e) {
+            throw new RunJobException(e.getMessage());
+        }
+
+    }
 }

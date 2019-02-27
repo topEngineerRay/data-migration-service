@@ -1,6 +1,7 @@
 package com.sap.ngom.datamigration.writer;
 
 import org.springframework.batch.item.ItemWriter;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
 
 import javax.sql.DataSource;
@@ -8,9 +9,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
-public class GenericItemWriter extends BasicItemWriter {
+public class SpecificRecordItemWriter extends BasicItemWriter {
 
-    public GenericItemWriter(DataSource dataSource, String table, String nameSpace) {
+    public SpecificRecordItemWriter(DataSource dataSource, String table, String nameSpace) {
         super(dataSource, table, nameSpace);
     }
 
@@ -24,8 +25,11 @@ public class GenericItemWriter extends BasicItemWriter {
         SimpleJdbcInsert jdbcInsert = new SimpleJdbcInsert(dataSource)
                 .usingColumns(columns)
                 .withTableName(buildHanaTableName(nameSpace,table));
-
-        jdbcInsert.executeBatch(list.toArray(new Map[0]));
+        //when there is a duplicated key exception, method execute and exectueBatch will throw different exception
+        list.forEach(item ->{
+                jdbcInsert.execute(item);
+        });
     }
+
 
 }
