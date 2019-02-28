@@ -207,19 +207,23 @@ public class DataMigrationService {
     public JobStatus getJobStatus(String tableName) {
         tableNameValidation(tableName);
 
-        String jobStatus = getLastExecutionStatus(tableName);
-        return JobStatus.builder().table(tableName).jobStatus(jobStatus).build();
+        return getLastExecutionStatus(tableName);
     }
 
-    private String getLastExecutionStatus (String tableName){
+    private JobStatus getLastExecutionStatus (String tableName){
         String executionStatus;
+        Date jobStartTime;
+        Date jobEndTime;
         JobExecution jobExecution = jobRepository.getLastJobExecution(tableName+JOB_NAME_SUFFIX, getCurrentRunntingJobParameters(tableName));
-        if(null == jobExecution){
+        if (null == jobExecution) {
             executionStatus = "No Job Triggered Yet!";
-        }else{
-            executionStatus = jobExecution.getStatus().toString();
+            return JobStatus.builder().table(tableName).jobStatus(executionStatus).build();
         }
-        return executionStatus;
+        executionStatus = jobExecution.getStatus().toString();
+        jobStartTime = jobExecution.getStartTime();
+        jobEndTime = jobExecution.getEndTime();
+        return JobStatus.builder().table(tableName).jobStatus(executionStatus).jobStartTime(jobStartTime)
+                .jobEndTime(jobEndTime).build();
     }
 
     public List<JobStatus> getAllJobsStatus (){
@@ -229,8 +233,7 @@ public class DataMigrationService {
             return jobStatuses;
         }
         for (String sourceTable : sourceTables) {
-            String executionStatus = getLastExecutionStatus(sourceTable);
-            JobStatus jobStatus = JobStatus.builder().table(sourceTable).jobStatus(executionStatus).build();
+            JobStatus jobStatus = getLastExecutionStatus(sourceTable);
             jobStatuses.add(jobStatus);
         }
         return jobStatuses;
