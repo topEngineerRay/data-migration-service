@@ -7,6 +7,7 @@ import com.sap.ngom.datamigration.model.verification.Detail;
 import com.sap.ngom.datamigration.model.verification.TableResult;
 import com.sap.ngom.datamigration.model.verification.TenantResult;
 import com.sap.ngom.datamigration.util.DBConfigReader;
+import com.sap.ngom.datamigration.util.DBHashSqlGenerator;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -35,6 +36,9 @@ public class DataVerificationService {
 
     @Autowired
     DBConfigReader dbConfigReader;
+
+    @Autowired
+    DBHashSqlGenerator dbHashSqlGenerator;
 
     public ResponseMessage dataVerificationForOneTable(String tableName) {
 
@@ -114,6 +118,9 @@ public class DataVerificationService {
             }
         });
 
+
+
+
         List<TenantResult> tenantsResultList = new ArrayList<>();
         tableResult.setDataConsistent(true);
         for(String tenant : queryResult.keySet()){
@@ -131,6 +138,20 @@ public class DataVerificationService {
                 tenantResult.setCountResult(countResult);
 
                 tenantsResultList.add(tenantResult);
+            } else if(targetTenantCount != 0){
+              //  String hana_md5_sql = "select to_nvarchar(hash_md5(to_varbinary(PKID),to_varbinary(BPID),to_varbinary(ifnull(FIRSTNAME,\' \')),to_varbinary(ifnull(LASTNAME,\' \')),to_varbinary(ifnull(COMPANY,\' \')),to_varbinary(\"VERSION\"))) from " + "\"" + targetTableName + "\"" +" order by bpid asc";
+                String hana_md5_sql = dbHashSqlGenerator.generateHanaMd5Sql(targetTableName,hanaJdbcTemplate);
+                List<String> hana_md5_list =hanaJdbcTemplate.queryForList(hana_md5_sql,String.class);
+
+                JdbcTemplate postgresJdbcTemplate = new JdbcTemplate(sourceDataSource);
+               // String postgres_md5_sql = "select upper(md5(pkid||bpid||coalesce(firstname,\' \')||coalesce(lastname,\' \')||coalesce(company,\' \')||\"version\")) from " + tableName + " where tenant_id=" + "\'" +tenant + "\'" + " order by bpid asc";
+
+                String postgres_md5_sql = dbHashSqlGenerator.generatePostgresMd5Sql(tableName,tenant,postgresJdbcTemplate);
+                List<String> postgres_md5_list = postgresJdbcTemplate.queryForList(postgres_md5_sql, String.class);
+                postgres_md5_list.removeAll(hana_md5_list);
+                if(!postgres_md5_list.isEmpty()){
+                    log.info("list~~~~~~~~~~~~" + postgres_md5_list );
+                }
             }
             log.info("Data verification is completed for tenant(" + tenant + ") in table: " + tableName);
         }
