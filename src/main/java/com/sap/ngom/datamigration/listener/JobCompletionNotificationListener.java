@@ -1,6 +1,6 @@
 package com.sap.ngom.datamigration.listener;
 
-import com.sap.ngom.datamigration.util.BatchJobParameterHolder;
+import com.sap.ngom.datamigration.configuration.BatchJobParameterHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.batch.core.BatchStatus;

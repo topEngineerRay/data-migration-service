@@ -1,6 +1,5 @@
 package com.sap.ngom.datamigration.util;
 
-import com.sap.ngom.datamigration.configuration.DBConfigReader;
 import com.sap.ngom.datamigration.exception.SourceTableNotDefinedException;
 import org.junit.Assert;
 import org.junit.Before;

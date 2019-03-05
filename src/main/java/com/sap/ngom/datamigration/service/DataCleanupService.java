@@ -2,7 +2,7 @@ package com.sap.ngom.datamigration.service;
 
 import com.sap.ngom.datamigration.configuration.hana.TenantThreadLocalHolder;
 import com.sap.ngom.datamigration.exception.DataCleanupException;
-import com.sap.ngom.datamigration.configuration.DBConfigReader;
+import com.sap.ngom.datamigration.util.DBConfigReader;
 import com.sap.ngom.datamigration.util.TenantHelper;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;

@@ -1,4 +1,4 @@
-package com.sap.ngom.datamigration.configuration;
+package com.sap.ngom.datamigration.util;
 
 import com.sap.ngom.datamigration.exception.SourceTableNotDefinedException;
 import org.springframework.beans.factory.annotation.Value;

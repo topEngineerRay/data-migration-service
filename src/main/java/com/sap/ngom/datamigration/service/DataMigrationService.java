@@ -1,14 +1,14 @@
 package com.sap.ngom.datamigration.service;
 
-import com.sap.ngom.datamigration.util.BatchJobParameterHolder;
+import com.sap.ngom.datamigration.configuration.BatchJobParameterHolder;
 import com.sap.ngom.datamigration.exception.RunJobException;
 import com.sap.ngom.datamigration.listener.BPStepListener;
 import com.sap.ngom.datamigration.listener.JobCompletionNotificationListener;
 import com.sap.ngom.datamigration.model.JobStatus;
 import com.sap.ngom.datamigration.model.MigrateRecord;
 import com.sap.ngom.datamigration.processor.CustomItemProcessor;
-import com.sap.ngom.datamigration.configuration.DBConfigReader;
-import com.sap.ngom.datamigration.util.DataMigrationServiceUtil;
+import com.sap.ngom.datamigration.util.DBConfigReader;
+import com.sap.ngom.datamigration.util.TableNameValidator;
 import com.sap.ngom.datamigration.util.TenantHelper;
 import com.sap.ngom.datamigration.writer.GenericItemWriter;
 import com.sap.ngom.datamigration.writer.SpecificRecordItemWriter;
@@ -80,7 +80,7 @@ public class DataMigrationService {
     private BatchJobParameterHolder batchJobParameterHolder;
 
     @Autowired
-    private DataMigrationServiceUtil dataMigrationServiceUtil;
+    private TableNameValidator tableNameValidator;
 
     private static String JOB_NAME_SUFFIX = "_MigrationJob";
 
@@ -90,7 +90,7 @@ public class DataMigrationService {
     }
 
     public void triggerOneMigrationJob(String tableName) {
-        dataMigrationServiceUtil.tableNameValidation(tableName);
+        tableNameValidator.tableNameValidation(tableName);
 
         String jobName = tableName + JOB_NAME_SUFFIX;
         List<Step> stepList = new ArrayList<Step>();
@@ -202,7 +202,7 @@ public class DataMigrationService {
     }
 
     public JobStatus getJobStatus(String tableName) {
-        dataMigrationServiceUtil.tableNameValidation(tableName);
+        tableNameValidator.tableNameValidation(tableName);
 
         return getLastExecutionStatus(tableName);
     }
