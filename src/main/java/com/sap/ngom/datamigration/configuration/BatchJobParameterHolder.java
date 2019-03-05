@@ -3,13 +3,13 @@ package com.sap.ngom.datamigration.configuration;
 import com.sap.ngom.datamigration.util.DBConfigReader;
 import com.sap.ngom.datamigration.util.TableNameValidator;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
+import org.springframework.context.annotation.Configuration;
 
 import javax.annotation.PostConstruct;
 import java.util.HashMap;
 import java.util.Map;
 
-@Component
+@Configuration
 public class BatchJobParameterHolder {
 
     @Autowired
