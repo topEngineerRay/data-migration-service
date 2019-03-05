@@ -1,14 +1,15 @@
-package com.sap.ngom.datamigration.util;
+package com.sap.ngom.datamigration.configuration;
 
 import com.sap.ngom.datamigration.exception.SourceTableNotDefinedException;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Configuration;
 import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
 import java.util.Arrays;
 import java.util.List;
 
-@Component
+@Configuration
 public class DBConfigReader {
 
     @Value("${data.migration.db.source.tables}")

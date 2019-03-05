@@ -8,4 +8,5 @@ applications:
     - postgresql-om
     - managed-hana-bill-service
   env:
-    VAULT_AUTH_TOKEN: f4e507cf-8123-2e3b-1a36-7653aead30da
+    VAULT_AUTH_TOKEN: "${vault.generateToken()}"
+    SPRING_PROFILES_ACTIVE: "${context}"

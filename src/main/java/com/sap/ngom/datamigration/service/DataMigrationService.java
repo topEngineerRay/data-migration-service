@@ -7,7 +7,7 @@ import com.sap.ngom.datamigration.listener.JobCompletionNotificationListener;
 import com.sap.ngom.datamigration.model.JobStatus;
 import com.sap.ngom.datamigration.model.MigrateRecord;
 import com.sap.ngom.datamigration.processor.CustomItemProcessor;
-import com.sap.ngom.datamigration.util.DBConfigReader;
+import com.sap.ngom.datamigration.configuration.DBConfigReader;
 import com.sap.ngom.datamigration.util.DataMigrationServiceUtil;
 import com.sap.ngom.datamigration.util.TenantHelper;
 import com.sap.ngom.datamigration.writer.GenericItemWriter;

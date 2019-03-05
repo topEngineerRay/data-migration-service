@@ -1,6 +1,6 @@
 package com.sap.ngom.datamigration.service;
 
-import com.sap.ngom.datamigration.util.DBConfigReader;
+import com.sap.ngom.datamigration.configuration.DBConfigReader;
 import com.sap.ngom.datamigration.util.InstanceManagerUtil;
 import com.sap.ngom.datamigration.util.TenantHelper;
 import com.sap.ngom.util.hana.db.configuration.MultiTenantDataSourceHolder;

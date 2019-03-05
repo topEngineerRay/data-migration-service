@@ -6,7 +6,7 @@ import com.sap.ngom.datamigration.model.verification.CountResult;
 import com.sap.ngom.datamigration.model.verification.Detail;
 import com.sap.ngom.datamigration.model.verification.TableResult;
 import com.sap.ngom.datamigration.model.verification.TenantResult;
-import com.sap.ngom.datamigration.util.DBConfigReader;
+import com.sap.ngom.datamigration.configuration.DBConfigReader;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;

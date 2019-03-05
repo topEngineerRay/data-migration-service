@@ -1,5 +1,6 @@
 package com.sap.ngom.datamigration.util;
 
+import com.sap.ngom.datamigration.configuration.DBConfigReader;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
