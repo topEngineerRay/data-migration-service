@@ -1,14 +1,14 @@
 package com.sap.ngom.datamigration.service;
 
-import com.sap.ngom.datamigration.configuration.BatchJobParameterHolder;
+import com.sap.ngom.datamigration.util.BatchJobParameterHolder;
 import com.sap.ngom.datamigration.exception.RunJobException;
-import com.sap.ngom.datamigration.exception.SourceTableNotDefinedException;
 import com.sap.ngom.datamigration.listener.BPStepListener;
 import com.sap.ngom.datamigration.listener.JobCompletionNotificationListener;
 import com.sap.ngom.datamigration.model.JobStatus;
 import com.sap.ngom.datamigration.model.MigrateRecord;
 import com.sap.ngom.datamigration.processor.CustomItemProcessor;
 import com.sap.ngom.datamigration.util.DBConfigReader;
+import com.sap.ngom.datamigration.util.DataMigrationServiceUtil;
 import com.sap.ngom.datamigration.util.TenantHelper;
 import com.sap.ngom.datamigration.writer.GenericItemWriter;
 import com.sap.ngom.datamigration.writer.SpecificRecordItemWriter;
@@ -79,6 +79,9 @@ public class DataMigrationService {
     @Autowired
     private BatchJobParameterHolder batchJobParameterHolder;
 
+    @Autowired
+    private DataMigrationServiceUtil dataMigrationServiceUtil;
+
     private static String JOB_NAME_SUFFIX = "_MigrationJob";
 
     @PostConstruct
@@ -87,7 +90,7 @@ public class DataMigrationService {
     }
 
     public void triggerOneMigrationJob(String tableName) {
-        tableNameValidation(tableName);
+        dataMigrationServiceUtil.tableNameValidation(tableName);
 
         String jobName = tableName + JOB_NAME_SUFFIX;
         List<Step> stepList = new ArrayList<Step>();
@@ -133,12 +136,6 @@ public class DataMigrationService {
 
     public boolean isJobRunningOnTable(String tableName){
         return batchJobParameterHolder.acquireJobLock(tableName);
-    }
-
-    private void tableNameValidation(String tableName) {
-        if (!dbConfigReader.getSourceTableNames().contains(tableName)) {
-            throw new SourceTableNotDefinedException("There is no table:" + tableName + " in the database");
-        }
     }
 
     private Step createOneStep(String tenant, String table) {
@@ -205,7 +202,7 @@ public class DataMigrationService {
     }
 
     public JobStatus getJobStatus(String tableName) {
-        tableNameValidation(tableName);
+        dataMigrationServiceUtil.tableNameValidation(tableName);
 
         return getLastExecutionStatus(tableName);
     }

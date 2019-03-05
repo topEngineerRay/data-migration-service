@@ -1,18 +1,20 @@
-package com.sap.ngom.datamigration.configuration;
+package com.sap.ngom.datamigration.util;
 
-import com.sap.ngom.datamigration.util.DBConfigReader;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.annotation.Configuration;
+import org.springframework.stereotype.Component;
 
 import javax.annotation.PostConstruct;
 import java.util.HashMap;
 import java.util.Map;
 
-@Configuration
+@Component
 public class BatchJobParameterHolder {
 
     @Autowired
     private DBConfigReader dbConfigReader;
+
+    @Autowired
+    private DataMigrationServiceUtil dataMigrationServiceUtil;
 
     private Map<String,Integer> jobParameterHolder = new HashMap<>();
 
@@ -38,6 +40,8 @@ public class BatchJobParameterHolder {
     }
 
     public synchronized boolean acquireJobLock(String table) {
+        dataMigrationServiceUtil.tableNameValidation(table);
+
         if(jobLockHolder.get(table)){
             return true;
         }else{
