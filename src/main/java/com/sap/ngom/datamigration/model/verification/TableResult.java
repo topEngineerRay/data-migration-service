@@ -15,6 +15,7 @@ import java.util.List;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class TableResult {
     private String table;
-    private List<TenantResult> tenants;
     private Boolean dataConsistent;
+    private String primaryKey;
+    private List<TenantResult> tenants;
 }
