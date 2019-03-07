@@ -9,3 +9,4 @@ applications:
     - managed-hana-business-partner-backup
   env:
     VAULT_AUTH_TOKEN: "${vault.generateToken()}"
+    SPRING_PROFILES_ACTIVE: "${context}"
