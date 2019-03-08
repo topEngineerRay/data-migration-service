@@ -25,6 +25,24 @@ Prepare some data in postgresql database.
 
 ## Run it on SCP
 
+### Prerequisites
+Make sure on SCP, the following dependencies of the service (e.g. business-partner) your want to do data migration are ready:
+* postgresql db instance is created
+* hdi-deployer app is deployed on SCP
+* managed-hana backing service is created
+
+Prepare some data in postgresql database.
+
+### Deploy by Command Line
+ - Clone the project locally.
+ - Build the project with Maven using `mvn clean package`.
+ - Submit `cf push -f manifest.yml`.
+
+For `manifest.yml` content, see example `manifest-business-partner.yml`.
+
+### Deploy by Jenkins Job
+To deploy to DWC spaces, build below Jenkins Job.
+https://ngom-jenkins.wdf.sap.corp/job/ngom-infrastructure/job/Data-Migrate-HANA/job/master/build?delay=0sec
 
 
 # Endpoints
