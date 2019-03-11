@@ -14,14 +14,14 @@ public class DBHashSqlGenerator {
 
     public String generatePostgresMd5Sql(String tableName, String tenant, JdbcTemplate jdbcTemplate, String tablePrimaryKey){
 
-        String retrieveColumnInfoSql = "select column_name,data_type from information_schema.columns where table_schema=\'public\' AND (data_type=\'character varying\' OR data_type=\'integer\' OR data_type=\'bigint\') AND table_name="+ "\'" + tableName + "\' AND column_name !=\'tenant_id\' order by column_name asc";
+        String retrieveColumnInfoSql = "select column_name,udt_name from information_schema.columns where table_schema=\'public\' AND table_name="+ "\'" + tableName + "\' AND column_name !=\'tenant_id\' order by column_name asc";
 
         Map<String,String> columnInfoMap = jdbcTemplate.query(retrieveColumnInfoSql, new ResultSetExtractor<Map<String,String>>() {
             @Override
             public Map<String,String> extractData(ResultSet resultSet) throws SQLException {
                 Map map = new LinkedHashMap();
                 while (resultSet.next()) {
-                    map.put(resultSet.getString("column_name"), resultSet.getString("data_type"));
+                    map.put(resultSet.getString("column_name"), resultSet.getString("udt_name"));
 
                 }
                 return map;
@@ -36,13 +36,25 @@ public class DBHashSqlGenerator {
 
         for(String column:columnInfoMap.keySet()){
             switch (columnInfoMap.get(column)){
-                case "character":
-                case "character varying":
+                case "char":
+                case "varchar":
                     md5SqlBuilder.append("coalesce(").append(column).append(",\' \')||");
                     break;
-                case "bigint":
-                case "integer":
+                case "int8":
+                case "int4":
                     md5SqlBuilder.append("coalesce(").append(column).append(",0)||");
+                    break;
+                case "timestamp":
+                    md5SqlBuilder.append("coalesce(to_char(").append(column).append(",\'YYYY/MM/DD HH:mm:ss\'),\' \')||");
+                    break;
+                case "bool":
+                    md5SqlBuilder.append("coalesce(").append(column).append("::integer::text,\' \')||");
+                    break;
+                case "date":
+                    md5SqlBuilder.append("coalesce(to_char(").append(column).append(",\'YYYY/MM/DD\'),\' \')||");
+                    break;
+                case "numeric":
+                    md5SqlBuilder.append("coalesce(").append(column).append("::text),\' \')||");
                     break;
             }
         }
@@ -53,7 +65,7 @@ public class DBHashSqlGenerator {
 
 
     public String generateHanaMd5Sql(String tableName, JdbcTemplate jdbcTemplate, String tablePrimaryKey){
-        String retrieveColumnInfoSql = "select COLUMN_NAME, DATA_TYPE_NAME from SYS.TABLE_COLUMNS WHERE TABLE_NAME=" +"\'" + tableName + "\'AND COLUMN_NAME !=\'TENANT_ID\' AND (DATA_TYPE_NAME=\'NVARCHAR\' OR DATA_TYPE_NAME=\'INTEGER\') ORDER BY COLUMN_NAME ASC";
+        String retrieveColumnInfoSql = "select COLUMN_NAME, DATA_TYPE_NAME from SYS.TABLE_COLUMNS WHERE TABLE_NAME=" +"\'" + tableName + "\'AND COLUMN_NAME !=\'TENANT_ID\' ORDER BY COLUMN_NAME ASC";
 
         Map<String,String> columnInfoMap = jdbcTemplate.query(retrieveColumnInfoSql, new ResultSetExtractor<Map<String,String>>() {
             @Override
@@ -78,6 +90,16 @@ public class DBHashSqlGenerator {
                     break;
                 case "INTEGER":
                     md5SqlBuilder.append("to_varbinary(ifnull(").append(column).append(",0)),");
+                    break;
+                case "TIMESTAMP":
+                    md5SqlBuilder.append("to_varbinary(ifnull(to_varchar(").append(column).append(",\'YYYY/MM/DD HH:mm:ss\'),\' \')),");
+                    break;
+                case "DECIMAL":
+                case "TINYINT":
+                    md5SqlBuilder.append("to_varbinary(ifnull(to_varchar(").append(column).append("),\' \')),");
+                    break;
+                case "DATE":
+                    md5SqlBuilder.append("to_varbinary(ifnull(to_varchar(").append(column).append(",\'YYYY/MM/DD\'),\' \')),");
                     break;
             }
         }
