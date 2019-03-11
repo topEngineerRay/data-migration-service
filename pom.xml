@@ -55,7 +55,7 @@
         <dependency>
             <groupId>com.sap.db.jdbc</groupId>
             <artifactId>ngdbc</artifactId>
-            <version>2.500.0</version>
+            <version>2.4.51</version>
         </dependency>
         <dependency>
             <groupId>com.sap.xsa.core.instancemanager</groupId>
