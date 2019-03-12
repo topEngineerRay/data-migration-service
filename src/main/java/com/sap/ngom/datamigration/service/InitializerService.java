@@ -134,7 +134,6 @@ public class InitializerService {
     public void initialize4AllTables() throws Exception{
         List<String> tableList = dbConfigReader.getSourceTableNames();
         List<String> tenantList = new ArrayList<String>();
-        // Create a new LinkedHashSet
         Set<String> tenantSet = new HashSet<>();
 
         for (String tableName : tableList) {
