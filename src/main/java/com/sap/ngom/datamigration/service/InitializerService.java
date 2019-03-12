@@ -15,9 +15,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import javax.sql.DataSource;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -50,6 +48,12 @@ public class InitializerService {
         String targetTableName = dbConfigReader.getTargetTableName(tableName);
 
         List<String> tenantList = tenantHelper.getAllTenants(tableName);
+
+        ExecuteInitilization(tenantList);
+
+    }
+
+    private void ExecuteInitilization(List<String> tenantList) throws Exception{
         ExecutorService executorService = Executors.newFixedThreadPool(THREADS_NUMBERS);
         CountDownLatch tenantLatch = new CountDownLatch(tenantList.size());
         final AtomicBoolean hasError = new AtomicBoolean(false);
@@ -118,7 +122,7 @@ public class InitializerService {
         }
         Long endTimestamp = System.currentTimeMillis();
 
-        log.info("Initialize all tenants for table:" + tableName + " {}", (endTimestamp - startTimestamp));
+        log.info("Initialize all tenants {}", (endTimestamp - startTimestamp));
         executorService.shutdown();
 
         if(hasError.get() || tenantLatch.getCount() != 0) {
@@ -129,33 +133,16 @@ public class InitializerService {
 
     public void initialize4AllTables() throws Exception{
         List<String> tableList = dbConfigReader.getSourceTableNames();
-
-        ExecutorService executorService = Executors.newFixedThreadPool(1);
-        CountDownLatch tableLatch = new CountDownLatch(tableList.size());
-        final AtomicBoolean hasError = new AtomicBoolean(false);
+        List<String> tenantList = new ArrayList<String>();
+        Set<String> tenantSet = new HashSet<>();
 
         for (String tableName : tableList) {
-            executorService.submit(() -> {
-                try {
-                    initialize4OneTable(tableName);
-                } catch (Exception e) {
-                    hasError.set(true);
-                }
-                tableLatch.countDown();
-                log.info("Initialize for table: " + tableName);
-            });
+            tenantList = tenantHelper.getAllTenants(tableName);
+            tenantSet.addAll(tenantList);
         }
-        try {
-            if(!tableLatch.await(500, TimeUnit.SECONDS)) {
-                log.error("Timeout for all tables");
-            }
-        } catch (InterruptedException e) {
-            log.error("Unexpected error occurs:", e);
-        }
-        executorService.shutdown();
-        if(hasError.get() || tableLatch.getCount() != 0) {
-            throw new HDIDeploymentInitializerException("Error occurs when initialization, check log for details.");
-        }
+        List allTenants = new ArrayList(tenantSet);
+        ExecuteInitilization(allTenants);
+
         log.info("******* Initialize done for all tables." );
     }
 
