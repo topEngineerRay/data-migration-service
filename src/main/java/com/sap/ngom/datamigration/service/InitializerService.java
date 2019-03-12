@@ -134,26 +134,15 @@ public class InitializerService {
     public void initialize4AllTables() throws Exception{
         List<String> tableList = dbConfigReader.getSourceTableNames();
         List<String> tenantList = new ArrayList<String>();
-        List<String> finalTenantList = new ArrayList<String>();
+        // Create a new LinkedHashSet
+        Set<String> tenantSet = new HashSet<>();
+
         for (String tableName : tableList) {
             tenantList = tenantHelper.getAllTenants(tableName);
-            finalTenantList.addAll(tenantList);
+            tenantSet.addAll(tenantList);
         }
-
-        // Create a new LinkedHashSet
-        Set<String> set = new LinkedHashSet<>();
-
-        // Add the elements to set
-        set.addAll(finalTenantList);
-
-        // Clear the list
-        finalTenantList.clear();
-
-        // add the elements of set
-        // with no duplicates to the list
-        finalTenantList.addAll(set);
-
-        ExecuteInitilization(finalTenantList);
+        List allTenants = new ArrayList(tenantSet);
+        ExecuteInitilization(allTenants);
 
         log.info("******* Initialize done for all tables." );
     }

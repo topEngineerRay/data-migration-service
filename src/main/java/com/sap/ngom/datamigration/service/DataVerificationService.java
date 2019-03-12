@@ -99,7 +99,7 @@ public class DataVerificationService {
         JdbcTemplate jdbcTemplate = new JdbcTemplate(sourceDataSource);
         String targetTableName = dbConfigReader.getTargetTableName(tableName);
         int targetTenantCount;
-        String sqlForTenantAndCount = "select count(tenant_id) as tenant_count, tenant_id from " + tableName + " group by tenant_id";
+        String sqlForTenantAndCount = "select count(tenant_id) as tenant_count, tenant_id from " + tableName + " where tenant_id is not null group by tenant_id";
 
         log.info("Data verification is starting for table: " + tableName);
         Map<String,Integer> queryResult = jdbcTemplate.query(sqlForTenantAndCount, new ResultSetExtractor<Map<String,Integer>>() {
@@ -116,11 +116,12 @@ public class DataVerificationService {
 
         List<TenantResult> tenantsResultList = new ArrayList<>();
         tableResult.setDataConsistent(true);
-        for(String tenant : queryResult.keySet()){
+        for (String tenant : queryResult.keySet()) {
             TenantThreadLocalHolder.setTenant(tenant);
             JdbcTemplate hanaJdbcTemplate = new JdbcTemplate(targetDataSource);
-            targetTenantCount = hanaJdbcTemplate.queryForObject("select count(*) from " + "\"" + targetTableName + "\"",Integer.class);
-            if(targetTenantCount != queryResult.get(tenant)){
+            targetTenantCount = hanaJdbcTemplate
+                    .queryForObject("select count(*) from " + "\"" + targetTableName + "\"", Integer.class);
+            if (targetTenantCount != queryResult.get(tenant)) {
                 tableResult.setDataConsistent(false);
                 CountResult countResult = new CountResult();
                 countResult.setSourceCount(queryResult.get(tenant));
