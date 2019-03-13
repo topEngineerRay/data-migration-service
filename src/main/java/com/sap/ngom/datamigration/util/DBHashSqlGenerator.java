@@ -36,12 +36,16 @@ public class DBHashSqlGenerator {
 
         for(String column:columnInfoMap.keySet()){
             switch (columnInfoMap.get(column)){
-                case "char":
                 case "varchar":
+                case "char":
+                case "bpchar":
+                case "text":
+                case "bytea":
                     md5SqlBuilder.append("coalesce(").append(column).append(",\' \')||");
                     break;
                 case "int8":
                 case "int4":
+                case "int2":
                     md5SqlBuilder.append("coalesce(").append(column).append(",0)||");
                     break;
                 case "timestamp":
@@ -54,7 +58,9 @@ public class DBHashSqlGenerator {
                     md5SqlBuilder.append("coalesce(to_char(").append(column).append(",\'YYYY/MM/DD\'),\' \')||");
                     break;
                 case "numeric":
-                    md5SqlBuilder.append("coalesce(").append(column).append("::text),\' \')||");
+                case "jsonb":
+                case "uuid":
+                    md5SqlBuilder.append("coalesce(").append(column).append("::text,\' \')||");
                     break;
             }
         }
@@ -86,6 +92,8 @@ public class DBHashSqlGenerator {
         for(String column:columnInfoMap.keySet()){
             switch (columnInfoMap.get(column)){
                 case "NVARCHAR":
+                case "BLOB":
+                case "NCLOB":
                     md5SqlBuilder.append("to_varbinary(ifnull(").append(column).append(",\' \')),");
                     break;
                 case "INTEGER":
@@ -94,8 +102,10 @@ public class DBHashSqlGenerator {
                 case "TIMESTAMP":
                     md5SqlBuilder.append("to_varbinary(ifnull(to_varchar(").append(column).append(",\'YYYY/MM/DD HH:mm:ss\'),\' \')),");
                     break;
+                case "TEXT":
                 case "DECIMAL":
                 case "TINYINT":
+                case "SMALLINT":
                     md5SqlBuilder.append("to_varbinary(ifnull(to_varchar(").append(column).append("),\' \')),");
                     break;
                 case "DATE":
