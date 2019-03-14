@@ -8,6 +8,7 @@ import com.sap.ngom.datamigration.model.verification.TableResult;
 import com.sap.ngom.datamigration.model.verification.TenantResult;
 import com.sap.ngom.datamigration.util.DBConfigReader;
 import com.sap.ngom.datamigration.util.DBHashSqlGenerator;
+import com.sap.ngom.datamigration.util.TenantHelper;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -17,7 +18,11 @@ import org.springframework.stereotype.Service;
 import javax.sql.DataSource;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.LinkedHashMap;
 
 @Log4j2
 @Service
@@ -29,10 +34,13 @@ public class DataVerificationService {
 
     @Autowired
     @Qualifier("targetDataSource")
-    DataSource targetDataSource;
+    private DataSource targetDataSource;
 
     @Autowired
-    DBConfigReader dbConfigReader;
+    private DBConfigReader dbConfigReader;
+
+    @Autowired
+    private TenantHelper tenantHelper;
 
     @Autowired
     DBHashSqlGenerator dbHashSqlGenerator;
@@ -100,8 +108,13 @@ public class DataVerificationService {
         JdbcTemplate jdbcTemplate = new JdbcTemplate(sourceDataSource);
         String targetTableName = dbConfigReader.getTargetTableName(tableName);
         int targetTenantCount;
-        String sqlForTenantAndCount = "select count(tenant_id) as tenant_count, tenant_id from " + tableName + " group by tenant_id";
+      //  String sqlForTenantAndCount = "select count(tenant_id) as tenant_count, tenant_id from " + tableName + " group by tenant_id";
         String retreivePrimaryKeySql = "select kc.column_name from information_schema.table_constraints tc join information_schema.key_column_usage kc on kc.table_name = \'" + tableName + "\' and kc.table_schema = \'public\' and kc.constraint_name = tc.constraint_name where tc.constraint_type = \'PRIMARY KEY\'  and kc.ordinal_position is not null order by column_name";
+        String tenantName = tenantHelper.determineTenant(tableName);
+        String sqlForTenantAndCount =
+                "select count(" + tenantName + ") as tenant_count, " + tenantName + " from " + tableName + " where "
+                        + tenantName
+                        + " is not null group by " + tenantName;
 
         log.info("Data verification is starting for table: " + tableName);
         List<String> tablePrimaryKeyList = jdbcTemplate.queryForList(retreivePrimaryKeySql,String.class);
@@ -122,7 +135,7 @@ public class DataVerificationService {
             public Map<String,Integer> extractData(ResultSet resultSet) throws SQLException {
                 Map map = new HashMap();
                 while (resultSet.next()) {
-                    map.put(resultSet.getString("tenant_id"), resultSet.getInt("tenant_count"));
+                    map.put(resultSet.getString(tenantName), resultSet.getInt("tenant_count"));
 
                 }
                 return map;
@@ -131,7 +144,7 @@ public class DataVerificationService {
 
         List<TenantResult> tenantsResultList = new ArrayList<>();
         tableResult.setDataConsistent(true);
-        for(String tenant : queryResult.keySet()){
+        for (String tenant : queryResult.keySet()) {
             TenantThreadLocalHolder.setTenant(tenant);
             JdbcTemplate hanaJdbcTemplate = new JdbcTemplate(targetDataSource);
             targetTenantCount = hanaJdbcTemplate.queryForObject("select count(*) from " + "\"" + targetTableName + "\"",Integer.class);
