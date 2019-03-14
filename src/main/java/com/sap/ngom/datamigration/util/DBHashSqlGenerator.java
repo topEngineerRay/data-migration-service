@@ -1,5 +1,6 @@
 package com.sap.ngom.datamigration.util;
 
+import com.sap.ngom.datamigration.model.verification.TableInfo;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.jdbc.core.ResultSetExtractor;
 import org.springframework.stereotype.Component;
@@ -12,9 +13,9 @@ import java.util.Map;
 @Component
 public class DBHashSqlGenerator {
 
-    public String generatePostgresMd5Sql(String tableName, String tenant, JdbcTemplate jdbcTemplate, String tablePrimaryKey){
+    public String generatePostgresMd5Sql(TableInfo tableInfo, JdbcTemplate jdbcTemplate){
 
-        String retrieveColumnInfoSql = "select column_name,udt_name from information_schema.columns where table_schema=\'public\' AND table_name="+ "\'" + tableName + "\' AND column_name !=\'tenant_id\' order by column_name asc";
+        String retrieveColumnInfoSql = "select column_name,udt_name from information_schema.columns where table_schema=\'public\' AND table_name="+ "\'" + tableInfo.getSourceTableName() + "\' AND column_name !=\'" + tableInfo.getTenantColumnName() + "\' order by column_name asc";
 
         Map<String,String> columnInfoMap = jdbcTemplate.query(retrieveColumnInfoSql, new ResultSetExtractor<Map<String,String>>() {
             @Override
@@ -61,12 +62,12 @@ public class DBHashSqlGenerator {
             }
         }
         md5SqlBuilder.delete(md5SqlBuilder.length()-2,md5SqlBuilder.length());
-        return "select row(" + tablePrimaryKey +") as \"tablePrimaryKey\", upper(md5(" + md5SqlBuilder.toString() + ")) as \"md5Result\" from " + tableName + " where tenant_id=" + "\'" + tenant + "\' order by " + tablePrimaryKey;
+        return "select row(" + tableInfo.getPrimaryKey() +") as \"tablePrimaryKey\", upper(md5(" + md5SqlBuilder.toString() + ")) as \"md5Result\" from " + tableInfo.getSourceTableName() + " where " + tableInfo.getTenantColumnName() + "=\'" + tableInfo.getTenant() + "\' order by " + tableInfo.getPrimaryKey();
     }
 
 
-    public String generateHanaMd5Sql(String tableName, JdbcTemplate jdbcTemplate, String tablePrimaryKey){
-        String retrieveColumnInfoSql = "select COLUMN_NAME, DATA_TYPE_NAME from SYS.TABLE_COLUMNS WHERE TABLE_NAME=" +"\'" + tableName + "\'AND COLUMN_NAME !=\'TENANT_ID\' ORDER BY COLUMN_NAME ASC";
+    public String generateHanaMd5Sql(TableInfo tableInfo, JdbcTemplate jdbcTemplate){
+        String retrieveColumnInfoSql = "select COLUMN_NAME, DATA_TYPE_NAME from SYS.TABLE_COLUMNS WHERE TABLE_NAME=" +"\'" + tableInfo.getTargetTableName() + "\' AND COLUMN_NAME !=\'" + tableInfo.getTenantColumnName().toUpperCase() + "\' ORDER BY COLUMN_NAME ASC";
 
         Map<String,String> columnInfoMap = jdbcTemplate.query(retrieveColumnInfoSql, new ResultSetExtractor<Map<String,String>>() {
             @Override
@@ -106,6 +107,6 @@ public class DBHashSqlGenerator {
             }
         }
         md5SqlBuilder.delete(md5SqlBuilder.length()-1,md5SqlBuilder.length());
-        return "select to_nvarchar(hash_md5(" + md5SqlBuilder.toString() + ")) from " + "\"" + tableName + "\" order by " + tablePrimaryKey;
+        return "select to_nvarchar(hash_md5(" + md5SqlBuilder.toString() + ")) from " + "\"" + tableInfo.getTargetTableName() + "\" order by " + tableInfo.getPrimaryKey();
     }
 }

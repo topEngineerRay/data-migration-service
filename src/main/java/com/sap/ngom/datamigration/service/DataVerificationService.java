@@ -2,10 +2,7 @@ package com.sap.ngom.datamigration.service;
 
 import com.sap.ngom.datamigration.configuration.hana.TenantThreadLocalHolder;
 import com.sap.ngom.datamigration.model.*;
-import com.sap.ngom.datamigration.model.verification.CountResult;
-import com.sap.ngom.datamigration.model.verification.Detail;
-import com.sap.ngom.datamigration.model.verification.TableResult;
-import com.sap.ngom.datamigration.model.verification.TenantResult;
+import com.sap.ngom.datamigration.model.verification.*;
 import com.sap.ngom.datamigration.util.DBConfigReader;
 import com.sap.ngom.datamigration.util.DBHashSqlGenerator;
 import com.sap.ngom.datamigration.util.TenantHelper;
@@ -43,7 +40,7 @@ public class DataVerificationService {
     private TenantHelper tenantHelper;
 
     @Autowired
-    DBHashSqlGenerator dbHashSqlGenerator;
+    private DBHashSqlGenerator dbHashSqlGenerator;
 
     public ResponseMessage dataVerificationForOneTable(String tableName) {
 
@@ -103,22 +100,18 @@ public class DataVerificationService {
 
 
     private TableResult verifyOneTableResult(String tableName) {
+        log.info("Data verification is starting for table: " + tableName);
 
         TableResult tableResult = new TableResult();
         JdbcTemplate jdbcTemplate = new JdbcTemplate(sourceDataSource);
-        String targetTableName = dbConfigReader.getTargetTableName(tableName);
-        int targetTenantCount;
-      //  String sqlForTenantAndCount = "select count(tenant_id) as tenant_count, tenant_id from " + tableName + " group by tenant_id";
-        String retreivePrimaryKeySql = "select kc.column_name from information_schema.table_constraints tc join information_schema.key_column_usage kc on kc.table_name = \'" + tableName + "\' and kc.table_schema = \'public\' and kc.constraint_name = tc.constraint_name where tc.constraint_type = \'PRIMARY KEY\'  and kc.ordinal_position is not null order by column_name";
-        String tenantName = tenantHelper.determineTenant(tableName);
-        String sqlForTenantAndCount =
-                "select count(" + tenantName + ") as tenant_count, " + tenantName + " from " + tableName + " where "
-                        + tenantName
-                        + " is not null group by " + tenantName;
+        TableInfo tableInfo = new TableInfo();
+        tableInfo.setSourceTableName(tableName);
+        tableInfo.setTargetTableName(dbConfigReader.getTargetTableName(tableName));
+        tableInfo.setTenantColumnName(tenantHelper.determineTenant(tableName));
+        String retrievePrimaryKeySql = "select kc.column_name from information_schema.table_constraints tc join information_schema.key_column_usage kc on kc.table_name = \'" + tableName + "\' and kc.table_schema = \'public\' and kc.constraint_name = tc.constraint_name where tc.constraint_type = \'PRIMARY KEY\'  and kc.ordinal_position is not null order by column_name";
+        String sqlForTenantAndCount = "select count(" + tableInfo.getTenantColumnName() + ") as tenant_count, " + tableInfo.getTenantColumnName() + " from " + tableName + " where " + tableInfo.getTenantColumnName() + " is not null group by " + tableInfo.getTenantColumnName();
+        List<String> tablePrimaryKeyList = jdbcTemplate.queryForList(retrievePrimaryKeySql,String.class);
 
-        log.info("Data verification is starting for table: " + tableName);
-        List<String> tablePrimaryKeyList = jdbcTemplate.queryForList(retreivePrimaryKeySql,String.class);
-        String tablePrimaryKey = "";
         if(tablePrimaryKeyList.isEmpty()) {
             log.warn("MD5 check would be skipped as the table " + tableName + "doesn't contain primary key.");
         } else{
@@ -126,7 +119,7 @@ public class DataVerificationService {
             for(String primaryKeyField:tablePrimaryKeyList){
                 tablePrimaryKeyBuilder.append(primaryKeyField).append(",");
             }
-            tablePrimaryKey = tablePrimaryKeyBuilder.delete(tablePrimaryKeyBuilder.length()-1,tablePrimaryKeyBuilder.length()).toString();
+            tableInfo.setPrimaryKey(tablePrimaryKeyBuilder.delete(tablePrimaryKeyBuilder.length()-1,tablePrimaryKeyBuilder.length()).toString());
 
         }
 
@@ -135,7 +128,7 @@ public class DataVerificationService {
             public Map<String,Integer> extractData(ResultSet resultSet) throws SQLException {
                 Map map = new HashMap();
                 while (resultSet.next()) {
-                    map.put(resultSet.getString(tenantName), resultSet.getInt("tenant_count"));
+                    map.put(resultSet.getString(tableInfo.getTenantColumnName()), resultSet.getInt("tenant_count"));
 
                 }
                 return map;
@@ -147,7 +140,7 @@ public class DataVerificationService {
         for (String tenant : queryResult.keySet()) {
             TenantThreadLocalHolder.setTenant(tenant);
             JdbcTemplate hanaJdbcTemplate = new JdbcTemplate(targetDataSource);
-            targetTenantCount = hanaJdbcTemplate.queryForObject("select count(*) from " + "\"" + targetTableName + "\"",Integer.class);
+            int targetTenantCount = hanaJdbcTemplate.queryForObject("select count(*) from " + "\"" + tableInfo.getTargetTableName() + "\"",Integer.class);
             CountResult countResult = new CountResult();
             TenantResult tenantResult = new TenantResult();
             boolean tenantDataConsistent = true;
@@ -156,13 +149,17 @@ public class DataVerificationService {
                 tenantDataConsistent = false;
 
             } else if(targetTenantCount != 0 && !tablePrimaryKeyList.isEmpty()){
+                 /*
+                  *  MD5 content check
+                  */
                 log.info("Hash consistent check is starting for tenant (" + tenant + ") in table: " + tableName);
-                String hana_md5_sql = dbHashSqlGenerator.generateHanaMd5Sql(targetTableName,hanaJdbcTemplate,tablePrimaryKey);
+                tableInfo.setTenant(tenant);
+                String hana_md5_sql = dbHashSqlGenerator.generateHanaMd5Sql(tableInfo,hanaJdbcTemplate);
 
                 List<String> hana_md5_list =hanaJdbcTemplate.queryForList(hana_md5_sql,String.class);
                 JdbcTemplate postgresJdbcTemplate = new JdbcTemplate(sourceDataSource);
 
-                String postgres_md5_sql = dbHashSqlGenerator.generatePostgresMd5Sql(tableName,tenant,postgresJdbcTemplate,tablePrimaryKey);
+                String postgres_md5_sql = dbHashSqlGenerator.generatePostgresMd5Sql(tableInfo, postgresJdbcTemplate);
                 Map<String,String> postgresMd5Result = jdbcTemplate.query(postgres_md5_sql, new ResultSetExtractor<Map<String,String>>() {
                     @Override
                     public Map<String,String> extractData(ResultSet resultSet) throws SQLException {
@@ -199,14 +196,13 @@ public class DataVerificationService {
 
             log.info("Data verification is completed for tenant (" + tenant + ") in table: " + tableName);
         }
-
-        log.info("Data verification is completed for table: " + tableName);
-
         if(!tableResult.getDataConsistent()){
             tableResult.setTenants(tenantsResultList);
             tableResult.setTable(tableName);
-            tableResult.setPrimaryKey(tablePrimaryKey);
+            tableResult.setPrimaryKey(tableInfo.getPrimaryKey());
         }
+
+        log.info("Data verification is completed for table: " + tableName);
         return tableResult;
     }
 }
