@@ -1,9 +1,8 @@
 package com.sap.ngom.datamigration.model.verification;
 
+
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.*;
-
-import java.util.List;
 
 @Getter
 @Setter
@@ -11,8 +10,10 @@ import java.util.List;
 @AllArgsConstructor
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
-public class TenantResult {
+public class TableInfo {
+    private String sourceTableName;
+    private String targetTableName;
+    private String tenantColumnName;
     private String tenant;
-    private CountResult countResult;
-    private List<String> inconsistentRecordsResult;
+    private String primaryKey;
 }
