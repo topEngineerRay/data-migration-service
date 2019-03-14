@@ -7,6 +7,7 @@ import com.sap.ngom.datamigration.model.verification.Detail;
 import com.sap.ngom.datamigration.model.verification.TableResult;
 import com.sap.ngom.datamigration.model.verification.TenantResult;
 import com.sap.ngom.datamigration.util.DBConfigReader;
+import com.sap.ngom.datamigration.util.TenantHelper;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -31,10 +32,13 @@ public class DataVerificationService {
 
     @Autowired
     @Qualifier("targetDataSource")
-    DataSource targetDataSource;
+    private DataSource targetDataSource;
 
     @Autowired
-    DBConfigReader dbConfigReader;
+    private DBConfigReader dbConfigReader;
+
+    @Autowired
+    private TenantHelper tenantHelper;
 
     public ResponseMessage dataVerificationForOneTable(String tableName) {
 
@@ -99,7 +103,11 @@ public class DataVerificationService {
         JdbcTemplate jdbcTemplate = new JdbcTemplate(sourceDataSource);
         String targetTableName = dbConfigReader.getTargetTableName(tableName);
         int targetTenantCount;
-        String sqlForTenantAndCount = "select count(tenant_id) as tenant_count, tenant_id from " + tableName + " where tenant_id is not null group by tenant_id";
+        String tenantName = tenantHelper.determineTenant(tableName);
+        String sqlForTenantAndCount =
+                "select count(" + tenantName + ") as tenant_count, " + tenantName + " from " + tableName + " where "
+                        + tenantName
+                        + " is not null group by " + tenantName;
 
         log.info("Data verification is starting for table: " + tableName);
         Map<String,Integer> queryResult = jdbcTemplate.query(sqlForTenantAndCount, new ResultSetExtractor<Map<String,Integer>>() {
@@ -107,7 +115,7 @@ public class DataVerificationService {
             public Map<String,Integer> extractData(ResultSet resultSet) throws SQLException {
                 Map map = new HashMap();
                 while (resultSet.next()) {
-                    map.put(resultSet.getString("tenant_id"), resultSet.getInt("tenant_count"));
+                    map.put(resultSet.getString(tenantName), resultSet.getInt("tenant_count"));
 
                 }
                 return map;

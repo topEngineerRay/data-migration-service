@@ -172,9 +172,11 @@ public class DataMigrationService {
 
     private JdbcCursorItemReader<Map<String, Object>> buildItemReader(final DataSource dataSource, String tableName,
             String tenant) {
+
+        String tenantName = tenantHelper.determineTenant(tableName);
         JdbcCursorItemReader<Map<String, Object>> itemReader = new JdbcCursorItemReader<>();
         itemReader.setDataSource(dataSource);
-        itemReader.setSql("select * from " + tableName + " where tenant_id ='" + tenant + "'");
+        itemReader.setSql("select * from " + tableName + " where " + tenantName + " ='" + tenant + "'");
         itemReader.setRowMapper(new ColumnMapRowMapper());
         return itemReader;
     }
