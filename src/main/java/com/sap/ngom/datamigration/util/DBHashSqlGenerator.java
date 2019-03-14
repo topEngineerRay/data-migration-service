@@ -29,10 +29,6 @@ public class DBHashSqlGenerator {
         });
 
         StringBuilder md5SqlBuilder = new StringBuilder();
-        String md5Sql = "";
-        if(columnInfoMap.isEmpty()){
-            return md5Sql;
-        }
 
         for(String column:columnInfoMap.keySet()){
             switch (columnInfoMap.get(column)){
@@ -65,8 +61,7 @@ public class DBHashSqlGenerator {
             }
         }
         md5SqlBuilder.delete(md5SqlBuilder.length()-2,md5SqlBuilder.length());
-        md5Sql = "select " + tablePrimaryKey +", upper(md5(" + md5SqlBuilder.toString() + ")) as \"md5Result\" from " + tableName + " where tenant_id=" + "\'" + tenant + "\' order by " + tablePrimaryKey;
-        return md5Sql;
+        return "select row(" + tablePrimaryKey +") as \"tablePrimaryKey\", upper(md5(" + md5SqlBuilder.toString() + ")) as \"md5Result\" from " + tableName + " where tenant_id=" + "\'" + tenant + "\' order by " + tablePrimaryKey;
     }
 
 
@@ -84,11 +79,8 @@ public class DBHashSqlGenerator {
                 return map;
             }
         });
-        String md5Sql = "";
         StringBuilder md5SqlBuilder = new StringBuilder();
-        if( columnInfoMap.isEmpty()){
-            return md5Sql;
-        }
+
         for(String column:columnInfoMap.keySet()){
             switch (columnInfoMap.get(column)){
                 case "NVARCHAR":
@@ -114,8 +106,6 @@ public class DBHashSqlGenerator {
             }
         }
         md5SqlBuilder.delete(md5SqlBuilder.length()-1,md5SqlBuilder.length());
-        md5Sql = "select to_nvarchar(hash_md5(" + md5SqlBuilder.toString() + ")) from " + "\"" + tableName + "\" order by " + tablePrimaryKey;
-        return md5Sql;
-
+        return "select to_nvarchar(hash_md5(" + md5SqlBuilder.toString() + ")) from " + "\"" + tableName + "\" order by " + tablePrimaryKey;
     }
 }
