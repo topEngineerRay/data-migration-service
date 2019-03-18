@@ -62,7 +62,7 @@ public class DBHashSqlGenerator {
             }
         }
         md5SqlBuilder.delete(md5SqlBuilder.length()-2,md5SqlBuilder.length());
-        return "select row(" + tableInfo.getPrimaryKey() +") as \"tablePrimaryKey\", upper(md5(" + md5SqlBuilder.toString() + ")) as \"md5Result\" from " + tableInfo.getSourceTableName() + " where " + tableInfo.getTenantColumnName() + "=\'" + tableInfo.getTenant() + "\' order by " + tableInfo.getPrimaryKey();
+        return "select " + tableInfo.getPrimaryKey() +" as \"tablePrimaryKey\", upper(md5(" + md5SqlBuilder.toString() + ")) as \"md5Result\" from " + tableInfo.getSourceTableName() + " where " + tableInfo.getTenantColumnName() + "=\'" + tableInfo.getTenant() + "\'";
     }
 
 
@@ -107,6 +107,7 @@ public class DBHashSqlGenerator {
             }
         }
         md5SqlBuilder.delete(md5SqlBuilder.length()-1,md5SqlBuilder.length());
-        return "select to_nvarchar(hash_md5(" + md5SqlBuilder.toString() + ")) from " + "\"" + tableInfo.getTargetTableName() + "\" order by " + tableInfo.getPrimaryKey();
+        return "select " + tableInfo.getPrimaryKey() + " as \"tablePrimaryKey\" , to_nvarchar(hash_md5(" + md5SqlBuilder.toString() + ")) as \"md5Result\"  from " + "\"" + tableInfo.getTargetTableName() + "\"";
+
     }
 }

@@ -112,14 +112,14 @@ public class DataVerificationService {
         String sqlForTenantAndCount = "select count(" + tableInfo.getTenantColumnName() + ") as tenant_count, " + tableInfo.getTenantColumnName() + " from " + tableName + " where " + tableInfo.getTenantColumnName() + " is not null group by " + tableInfo.getTenantColumnName();
         List<String> tablePrimaryKeyList = jdbcTemplate.queryForList(retrievePrimaryKeySql,String.class);
 
+        StringBuilder tablePrimaryKeyBuilder = new StringBuilder();
         if(tablePrimaryKeyList.isEmpty()) {
             log.warn("MD5 check would be skipped as the table " + tableName + "doesn't contain primary key.");
         } else{
-            StringBuilder tablePrimaryKeyBuilder = new StringBuilder();
             for(String primaryKeyField:tablePrimaryKeyList){
-                tablePrimaryKeyBuilder.append(primaryKeyField).append(",");
+                tablePrimaryKeyBuilder.append(primaryKeyField).append("||\',\'||");
             }
-            tableInfo.setPrimaryKey(tablePrimaryKeyBuilder.delete(tablePrimaryKeyBuilder.length()-1,tablePrimaryKeyBuilder.length()).toString());
+            tableInfo.setPrimaryKey(tablePrimaryKeyBuilder.delete(tablePrimaryKeyBuilder.length()-7,tablePrimaryKeyBuilder.length()).toString());
 
         }
 
@@ -156,33 +156,46 @@ public class DataVerificationService {
                 tableInfo.setTenant(tenant);
                 String hana_md5_sql = dbHashSqlGenerator.generateHanaMd5Sql(tableInfo,hanaJdbcTemplate);
 
-                List<String> hana_md5_list =hanaJdbcTemplate.queryForList(hana_md5_sql,String.class);
-                JdbcTemplate postgresJdbcTemplate = new JdbcTemplate(sourceDataSource);
-
-                String postgres_md5_sql = dbHashSqlGenerator.generatePostgresMd5Sql(tableInfo, postgresJdbcTemplate);
-                Map<String,String> postgresMd5Result = jdbcTemplate.query(postgres_md5_sql, new ResultSetExtractor<Map<String,String>>() {
+                Map<String,String> hanaMd5Result = hanaJdbcTemplate.query(hana_md5_sql, new ResultSetExtractor<Map<String,String>>() {
                     @Override
                     public Map<String,String> extractData(ResultSet resultSet) throws SQLException {
-                        Map map = new LinkedHashMap();
+                        Map map = new HashMap();
                         while (resultSet.next()) {
-                            map.put(resultSet.getString("md5Result"), resultSet.getString("tablePrimaryKey"));
+                            map.put(resultSet.getString("tablePrimaryKey"), resultSet.getString("md5Result"));
 
                         }
                         return map;
                     }
                 });
 
-                int index = 0;
+
+
+              //  List<String> hana_md5_list =hanaJdbcTemplate.queryForList(hana_md5_sql,String.class);
+                JdbcTemplate postgresJdbcTemplate = new JdbcTemplate(sourceDataSource);
+
+                String postgres_md5_sql = dbHashSqlGenerator.generatePostgresMd5Sql(tableInfo, postgresJdbcTemplate);
+                Map<String,String> postgresMd5Result = jdbcTemplate.query(postgres_md5_sql, new ResultSetExtractor<Map<String,String>>() {
+                    @Override
+                    public Map<String,String> extractData(ResultSet resultSet) throws SQLException {
+                        Map map = new HashMap();
+                        while (resultSet.next()) {
+                            map.put(resultSet.getString("tablePrimaryKey"), resultSet.getString("md5Result"));
+
+                        }
+                        return map;
+                    }
+                });
+
                 List<String> failedRecords = new ArrayList<>();
-                for(String md5Result: postgresMd5Result.keySet()){
-                    if(!md5Result.equals(hana_md5_list.get(index))){
+                for(String primaryKeyValue: postgresMd5Result.keySet()){
+                    if(!hanaMd5Result.containsKey(primaryKeyValue) || !hanaMd5Result.get(primaryKeyValue).equals(postgresMd5Result.get(primaryKeyValue))){
                         tableResult.setDataConsistent(false);
                         tenantDataConsistent = false;
-                        failedRecords.add(postgresMd5Result.get(md5Result));
+                        failedRecords.add(primaryKeyValue);
+
                     }
-                    index++;
                 }
-                tenantResult.setInconsistentRecordsResult(failedRecords);
+                tenantResult.setInconsistentRecords(failedRecords);
 
             }
 
@@ -199,7 +212,9 @@ public class DataVerificationService {
         if(!tableResult.getDataConsistent()){
             tableResult.setTenants(tenantsResultList);
             tableResult.setTable(tableName);
-            tableResult.setPrimaryKey(tableInfo.getPrimaryKey());
+            if(!tablePrimaryKeyList.isEmpty()){
+                tableResult.setPrimaryKey(tableInfo.getPrimaryKey().replace("||\',\'||",","));
+            }
         }
 
         log.info("Data verification is completed for table: " + tableName);

@@ -14,5 +14,5 @@ import java.util.List;
 public class TenantResult {
     private String tenant;
     private CountResult countResult;
-    private List<String> inconsistentRecordsResult;
+    private List<String> inconsistentRecords;
 }
