@@ -191,7 +191,7 @@ public class DataVerificationService {
                     if(!hanaMd5Result.containsKey(primaryKeyValue) || !hanaMd5Result.get(primaryKeyValue).equals(postgresMd5Result.get(primaryKeyValue))){
                         tableResult.setDataConsistent(false);
                         tenantDataConsistent = false;
-                        failedRecords.add(primaryKeyValue.replace("||\',\'||",","));
+                        failedRecords.add(primaryKeyValue);
 
                     }
                 }
