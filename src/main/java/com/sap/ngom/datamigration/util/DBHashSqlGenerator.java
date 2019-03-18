@@ -40,10 +40,13 @@ public class DBHashSqlGenerator {
                 case "bytea":
                     md5SqlBuilder.append("coalesce(").append(column).append(",\' \')||");
                     break;
-                case "int8":
                 case "int4":
+                case "numeric":
+                case "int8":
                 case "int2":
-                    md5SqlBuilder.append("coalesce(").append(column).append(",0)||");
+                case "jsonb":
+                case "uuid":
+                    md5SqlBuilder.append("coalesce(").append(column).append("::text,\' \')||");
                     break;
                 case "timestamp":
                     md5SqlBuilder.append("coalesce(to_char(").append(column).append(",\'YYYY/MM/DD HH:mm:ss\'),\' \')||");
@@ -53,11 +56,6 @@ public class DBHashSqlGenerator {
                     break;
                 case "date":
                     md5SqlBuilder.append("coalesce(to_char(").append(column).append(",\'YYYY/MM/DD\'),\' \')||");
-                    break;
-                case "numeric":
-                case "jsonb":
-                case "uuid":
-                    md5SqlBuilder.append("coalesce(").append(column).append("::text,\' \')||");
                     break;
             }
         }
@@ -89,14 +87,12 @@ public class DBHashSqlGenerator {
                 case "NCLOB":
                     md5SqlBuilder.append("to_varbinary(ifnull(").append(column).append(",\' \')),");
                     break;
-                case "INTEGER":
-                    md5SqlBuilder.append("to_varbinary(ifnull(").append(column).append(",0)),");
-                    break;
                 case "TIMESTAMP":
                     md5SqlBuilder.append("to_varbinary(ifnull(to_varchar(").append(column).append(",\'YYYY/MM/DD HH:mm:ss\'),\' \')),");
                     break;
                 case "TEXT":
                 case "DECIMAL":
+                case "INTEGER":
                 case "TINYINT":
                 case "SMALLINT":
                     md5SqlBuilder.append("to_varbinary(ifnull(to_varchar(").append(column).append("),\' \')),");
