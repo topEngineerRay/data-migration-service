@@ -95,6 +95,7 @@ public class DBHashSqlGenerator {
                 case "INTEGER":
                 case "TINYINT":
                 case "SMALLINT":
+                case "BIGINT":
                     md5SqlBuilder.append("to_varbinary(ifnull(to_varchar(").append(column).append("),\' \')),");
                     break;
                 case "DATE":
