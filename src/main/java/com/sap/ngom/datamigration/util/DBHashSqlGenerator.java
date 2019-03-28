@@ -34,8 +34,6 @@ public class DBHashSqlGenerator {
         for(String column:columnInfoMap.keySet()){
             switch (columnInfoMap.get(column)){
                 case "varchar":
-                case "char":
-                case "bpchar":
                 case "text":
                 case "bytea":
                     md5SqlBuilder.append("coalesce(").append(column).append(",\' \')||");
@@ -46,16 +44,18 @@ public class DBHashSqlGenerator {
                 case "int2":
                 case "jsonb":
                 case "uuid":
+                case "bpchar":
+                case "char":
                     md5SqlBuilder.append("coalesce(").append(column).append("::text,\' \')||");
                     break;
                 case "timestamp":
-                    md5SqlBuilder.append("coalesce(to_char(").append(column).append(",\'YYYY/MM/DD HH:mm:ss\'),\' \')||");
+                    md5SqlBuilder.append("coalesce(to_char(").append(column).append(",\'YYYY-MM-DD HH24:MI:SS.MS\'),\' \')||");
                     break;
                 case "bool":
                     md5SqlBuilder.append("coalesce(").append(column).append("::integer::text,\' \')||");
                     break;
                 case "date":
-                    md5SqlBuilder.append("coalesce(to_char(").append(column).append(",\'YYYY/MM/DD\'),\' \')||");
+                    md5SqlBuilder.append("coalesce(to_char(").append(column).append(",\'YYYY-MM-DD\'),\' \')||");
                     break;
             }
         }
@@ -88,7 +88,7 @@ public class DBHashSqlGenerator {
                     md5SqlBuilder.append("to_varbinary(ifnull(").append(column).append(",\' \')),");
                     break;
                 case "TIMESTAMP":
-                    md5SqlBuilder.append("to_varbinary(ifnull(to_varchar(").append(column).append(",\'YYYY/MM/DD HH:mm:ss\'),\' \')),");
+                    md5SqlBuilder.append("to_varbinary(ifnull(to_varchar(").append(column).append(",\'YYYY-MM-DD HH24:MI:SS.FF3\'),\' \')),");
                     break;
                 case "TEXT":
                 case "DECIMAL":
@@ -99,7 +99,7 @@ public class DBHashSqlGenerator {
                     md5SqlBuilder.append("to_varbinary(ifnull(to_varchar(").append(column).append("),\' \')),");
                     break;
                 case "DATE":
-                    md5SqlBuilder.append("to_varbinary(ifnull(to_varchar(").append(column).append(",\'YYYY/MM/DD\'),\' \')),");
+                    md5SqlBuilder.append("to_varbinary(ifnull(to_varchar(").append(column).append(",\'YYYY-MM-DD\'),\' \')),");
                     break;
             }
         }
