@@ -123,28 +123,25 @@ public class DataVerificationService {
 
         }
 
-        Map<String,Integer> queryResult = jdbcTemplate.query(sqlForTenantAndCount, new ResultSetExtractor<Map<String,Integer>>() {
-            @Override
-            public Map<String,Integer> extractData(ResultSet resultSet) throws SQLException {
-                Map map = new HashMap();
-                while (resultSet.next()) {
-                    map.put(resultSet.getString(tableInfo.getTenantColumnName()), resultSet.getInt("tenant_count"));
+        Map<String,Integer> tenantAndCountMap = jdbcTemplate.query(sqlForTenantAndCount, resultSet -> {
+            Map<String,Integer> map = new HashMap<>();
+            while (resultSet.next()) {
+                map.put(resultSet.getString(tableInfo.getTenantColumnName()), resultSet.getInt("tenant_count"));
 
-                }
-                return map;
             }
+            return map;
         });
 
         List<TenantResult> tenantsResultList = new ArrayList<>();
         tableResult.setDataConsistent(true);
-        for (String tenant : queryResult.keySet()) {
+        for (String tenant : tenantAndCountMap.keySet()) {
             TenantThreadLocalHolder.setTenant(tenant);
             JdbcTemplate hanaJdbcTemplate = new JdbcTemplate(targetDataSource);
             int targetTenantCount = hanaJdbcTemplate.queryForObject("select count(*) from " + "\"" + tableInfo.getTargetTableName() + "\"",Integer.class);
             CountResult countResult = new CountResult();
             TenantResult tenantResult = new TenantResult();
             boolean tenantDataConsistent = true;
-            if(targetTenantCount != queryResult.get(tenant)){
+            if(targetTenantCount != tenantAndCountMap.get(tenant)){
                 tableResult.setDataConsistent(false);
                 tenantDataConsistent = false;
 
@@ -156,34 +153,26 @@ public class DataVerificationService {
                 tableInfo.setTenant(tenant);
                 String hana_md5_sql = dbHashSqlGenerator.generateHanaMd5Sql(tableInfo,hanaJdbcTemplate);
 
-                Map<String,String> hanaMd5Result = hanaJdbcTemplate.query(hana_md5_sql, new ResultSetExtractor<Map<String,String>>() {
-                    @Override
-                    public Map<String,String> extractData(ResultSet resultSet) throws SQLException {
-                        Map map = new HashMap();
-                        while (resultSet.next()) {
-                            map.put(resultSet.getString("tablePrimaryKey"), resultSet.getString("md5Result"));
+                Map<String,String> hanaMd5Result = hanaJdbcTemplate.query(hana_md5_sql, resultSet -> {
+                    Map<String,String> map = new HashMap<>();
+                    while (resultSet.next()) {
+                        map.put(resultSet.getString("tablePrimaryKey"), resultSet.getString("md5Result"));
 
-                        }
-                        return map;
                     }
+                    return map;
                 });
 
 
-
-              //  List<String> hana_md5_list =hanaJdbcTemplate.queryForList(hana_md5_sql,String.class);
                 JdbcTemplate postgresJdbcTemplate = new JdbcTemplate(sourceDataSource);
 
                 String postgres_md5_sql = dbHashSqlGenerator.generatePostgresMd5Sql(tableInfo, postgresJdbcTemplate);
-                Map<String,String> postgresMd5Result = jdbcTemplate.query(postgres_md5_sql, new ResultSetExtractor<Map<String,String>>() {
-                    @Override
-                    public Map<String,String> extractData(ResultSet resultSet) throws SQLException {
-                        Map map = new HashMap();
-                        while (resultSet.next()) {
-                            map.put(resultSet.getString("tablePrimaryKey"), resultSet.getString("md5Result"));
+                Map<String,String> postgresMd5Result = jdbcTemplate.query(postgres_md5_sql, resultSet -> {
+                    Map<String,String> map = new HashMap<>();
+                    while (resultSet.next()) {
+                        map.put(resultSet.getString("tablePrimaryKey"), resultSet.getString("md5Result"));
 
-                        }
-                        return map;
                     }
+                    return map;
                 });
 
                 List<String> failedRecords = new ArrayList<>();
@@ -192,15 +181,13 @@ public class DataVerificationService {
                         tableResult.setDataConsistent(false);
                         tenantDataConsistent = false;
                         failedRecords.add(primaryKeyValue);
-
                     }
                 }
                 tenantResult.setInconsistentRecords(failedRecords);
-
             }
 
             if(!tenantDataConsistent){
-                countResult.setSourceCount(queryResult.get(tenant));
+                countResult.setSourceCount(tenantAndCountMap.get(tenant));
                 countResult.setTargetCount(targetTenantCount);
                 tenantResult.setTenant(tenant);
                 tenantResult.setCountResult(countResult);
