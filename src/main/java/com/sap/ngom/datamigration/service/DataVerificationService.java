@@ -137,6 +137,7 @@ public class DataVerificationService {
 
         List<TenantResult> tenantsResultList = new ArrayList<>();
         tableResult.setDataConsistent(true);
+        boolean testttt = true;
         for (String tenant : queryResult.keySet()) {
             TenantThreadLocalHolder.setTenant(tenant);
             JdbcTemplate hanaJdbcTemplate = new JdbcTemplate(targetDataSource);
@@ -186,6 +187,11 @@ public class DataVerificationService {
                     }
                 });
 
+                if(testttt) {
+                    log.info("postgres_sql: " + postgres_md5_sql);
+                    log.info("hana_sql: " + hana_md5_sql);
+                    testttt = false;
+                }
                 List<String> failedRecords = new ArrayList<>();
                 for(String primaryKeyValue: postgresMd5Result.keySet()){
                     if(!hanaMd5Result.containsKey(primaryKeyValue) || !hanaMd5Result.get(primaryKeyValue).equals(postgresMd5Result.get(primaryKeyValue))){

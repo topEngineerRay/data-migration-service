@@ -72,7 +72,7 @@ public class DataCleanupService {
         log.info("<<<<< Cleanup done for table: " + tableName);
     }
 
-    public void cleanData4AllTables() {
+    /*public void cleanData4AllTables() {
         List<String> tableList = dbConfigReader.getSourceTableNames();
 
         ExecutorService executorService = Executors.newFixedThreadPool(THREADS_NUMBERS);
@@ -102,5 +102,17 @@ public class DataCleanupService {
             throw new DataCleanupException("Error occurs when delete data, check log for details.");
         }
         log.info("******* Cleanup done for all tables." );
+    }*/
+
+    public void cleanData4AllTables() {
+        List<String> tableList = dbConfigReader.getSourceTableNames();
+
+        for (String tableName : tableList) {
+                try {
+                    cleanData4OneTable(tableName);
+                } catch (Exception e) {
+                    throw new DataCleanupException("Error occurs when delete data, check log for details.");
+                }
+        }
     }
 }

@@ -3,10 +3,12 @@ package com.sap.ngom.datamigration.service;
 import com.sap.ngom.datamigration.configuration.BatchJobParameterHolder;
 import com.sap.ngom.datamigration.exception.RunJobException;
 import com.sap.ngom.datamigration.listener.BPStepListener;
+import com.sap.ngom.datamigration.listener.CustomReaderListener;
 import com.sap.ngom.datamigration.listener.JobCompletionNotificationListener;
 import com.sap.ngom.datamigration.model.JobStatus;
 import com.sap.ngom.datamigration.model.MigrateRecord;
 import com.sap.ngom.datamigration.processor.CustomItemProcessor;
+import com.sap.ngom.datamigration.reader.CustomPagingReader;
 import com.sap.ngom.datamigration.util.DBConfigReader;
 import com.sap.ngom.datamigration.util.TableNameValidator;
 import com.sap.ngom.datamigration.util.TenantHelper;
@@ -25,16 +27,25 @@ import org.springframework.batch.core.repository.JobInstanceAlreadyCompleteExcep
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.repository.JobRestartException;
 import org.springframework.batch.item.ItemWriter;
+import org.springframework.batch.item.database.HibernatePagingItemReader;
 import org.springframework.batch.item.database.JdbcCursorItemReader;
+import org.springframework.batch.item.database.JdbcPagingItemReader;
+import org.springframework.batch.item.database.Order;
+import org.springframework.batch.item.database.builder.HibernatePagingItemReaderBuilder;
+import org.springframework.batch.item.database.orm.HibernateNativeQueryProvider;
+import org.springframework.batch.item.database.support.PostgresPagingQueryProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.ColumnMapRowMapper;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
 import javax.sql.DataSource;
+import javax.xml.crypto.Data;
 import java.util.*;
 
 @Service
@@ -145,7 +156,7 @@ public class DataMigrationService {
                 .listener(new BPStepListener(tenant))
                 .<Map<String, Object>, Map<String, Object>>chunk(CHUNK_SIZE).faultTolerant().noSkip(Exception.class)
                 .skipLimit(SKIP_LIMIT)
-                .reader(buildItemReader(dataSource, table, tenant))
+                .reader(buildItemReader(dataSource, table, tenant)).listener(new CustomReaderListener())
                 .processor(new CustomItemProcessor())
                 .writer(buildItemWriter(detinationDataSource, table, targetNameSpace)).faultTolerant()
                 .noSkip(Exception.class).skipLimit(SKIP_LIMIT)
@@ -170,7 +181,7 @@ public class DataMigrationService {
         return tenantSpecificStep;
     }
 
-    private JdbcCursorItemReader<Map<String, Object>> buildItemReader(final DataSource dataSource, String tableName,
+   private JdbcCursorItemReader<Map<String, Object>> buildItemReader(final DataSource dataSource, String tableName,
             String tenant) {
 
         String tenantName = tenantHelper.determineTenant(tableName);
@@ -178,7 +189,69 @@ public class DataMigrationService {
         itemReader.setDataSource(dataSource);
         itemReader.setSql("select * from " + tableName + " where " + tenantName + " ='" + tenant + "'");
         itemReader.setRowMapper(new ColumnMapRowMapper());
+        itemReader.setFetchSize(500);
+        itemReader.setVerifyCursorPosition(true);
+        //itemReader.setMaxRows(100);
+        //itemReader.setMaxItemCount(100);
         return itemReader;
+    }
+
+/*   private JdbcPagingItemReader<Map<String, Object>> buildItemReader(final DataSource dataSource, String tableName,
+            String tenant){
+
+        String tenantName = tenantHelper.determineTenant(tableName);
+
+        Map<String, Object> sqlParameterValues = new HashMap<>();
+        sqlParameterValues.put("tableName", tableName);
+        sqlParameterValues.put("tenantName", tenantName);
+        sqlParameterValues.put("tenant", tenant);
+
+        JdbcPagingItemReader<Map<String, Object>> itemReader = new JdbcPagingItemReader<>();
+        itemReader.setDataSource(dataSource);
+        itemReader.setPageSize(2);
+        itemReader.setQueryProvider(generateSqlPagingQueryProvider(tableName,tenantName,tenant));
+        //itemReader.setParameterValues(sqlParameterValues);
+        itemReader.setRowMapper(new ColumnMapRowMapper());
+        try {
+            itemReader.afterPropertiesSet();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return itemReader;
+    }*/
+
+
+    private PostgresPagingQueryProvider generateSqlPagingQueryProvider(String tableName, String tenantName,
+            String tenant) {
+        PostgresPagingQueryProvider provider = new PostgresPagingQueryProvider();
+        Map<String, Order> sortKeys = new LinkedHashMap<>();
+        String sortKey = getSortKeyBytable(tableName);
+        sortKeys.put(sortKey, Order.ASCENDING);
+
+        provider.setSelectClause("select *");
+        provider.setFromClause("from " + tableName);
+        provider.setWhereClause("where " + tenantName + " ='" + tenant + "'");
+        provider.setSortKeys(sortKeys);
+        return provider;
+    }
+
+    private String getSortKeyBytable(String tableName){
+        String key = "";
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
+        String retrievePrimaryKeySql = "select kc.column_name from information_schema.table_constraints tc join information_schema.key_column_usage kc on kc.table_name = \'" + tableName + "\' and kc.table_schema = \'public\' and kc.constraint_name = tc.constraint_name where tc.constraint_type = \'PRIMARY KEY\'  and kc.ordinal_position is not null order by column_name";
+        List<String> tablePrimaryKeyList = jdbcTemplate.queryForList(retrievePrimaryKeySql,String.class);
+
+        StringBuilder tablePrimaryKeyBuilder = new StringBuilder();
+        if(tablePrimaryKeyList.isEmpty()) {
+            log.warn("MD5 check would be skipped as the table " + tableName + "doesn't contain primary key.");
+        } else{
+            for(String primaryKeyField:tablePrimaryKeyList){
+                tablePrimaryKeyBuilder.append(primaryKeyField).append("||\',\'||");
+            }
+            key = tablePrimaryKeyBuilder.delete(tablePrimaryKeyBuilder.length()-7,tablePrimaryKeyBuilder.length()).toString();
+        }
+        return key;
     }
 
     private JdbcCursorItemReader<Map<String, Object>> buildOneRecordItemReader(final DataSource dataSource,

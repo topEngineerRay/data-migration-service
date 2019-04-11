@@ -18,6 +18,9 @@ public class BPStepListener implements StepExecutionListener {
 
     @Override
     public ExitStatus afterStep(StepExecution stepExecution) {
+        System.out.println("data count after read:" +stepExecution.getReadCount());
+        System.out.println("data commit count after read:" +stepExecution.getCommitCount());
+        System.out.println("data write count after read:" +stepExecution.getWriteCount());
         return null;
     }
 }
