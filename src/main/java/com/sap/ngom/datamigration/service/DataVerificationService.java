@@ -42,7 +42,7 @@ public class DataVerificationService {
     @Autowired
     private DBHashSqlGenerator dbHashSqlGenerator;
 
-    private static final int MISMATCH_RECORDS_MAX_NUM = 9;
+    private static final int MISMATCH_RECORDS_MAX_NUM = 100;
     private static final String MORE_INDICATOR = "..more";
 
     public ResponseMessage dataVerificationForOneTable(String tableName) {
