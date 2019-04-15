@@ -20,7 +20,7 @@ public class DBHashSqlGenerator {
         Map<String,String> columnInfoMap = jdbcTemplate.query(retrieveColumnInfoSql, new ResultSetExtractor<Map<String,String>>() {
             @Override
             public Map<String,String> extractData(ResultSet resultSet) throws SQLException {
-                Map map = new LinkedHashMap();
+                Map<String,String> map = new LinkedHashMap<>();
                 while (resultSet.next()) {
                     map.put(resultSet.getString("column_name"), resultSet.getString("udt_name"));
 
@@ -70,7 +70,7 @@ public class DBHashSqlGenerator {
         Map<String,String> columnInfoMap = jdbcTemplate.query(retrieveColumnInfoSql, new ResultSetExtractor<Map<String,String>>() {
             @Override
             public Map<String,String> extractData(ResultSet resultSet) throws SQLException {
-                Map map = new LinkedHashMap();
+                Map<String,String> map = new LinkedHashMap<>();
                 while (resultSet.next()) {
                     map.put(resultSet.getString("COLUMN_NAME"), resultSet.getString("DATA_TYPE_NAME"));
 
@@ -105,6 +105,5 @@ public class DBHashSqlGenerator {
         }
         md5SqlBuilder.delete(md5SqlBuilder.length()-1,md5SqlBuilder.length());
         return "select " + tableInfo.getPrimaryKey() + " as \"tablePrimaryKey\" , to_nvarchar(hash_md5(" + md5SqlBuilder.toString() + ")) as \"md5Result\"  from " + "\"" + tableInfo.getTargetTableName() + "\"";
-
     }
 }
