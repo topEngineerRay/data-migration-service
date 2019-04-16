@@ -210,23 +210,12 @@ public class DataMigrationService {
     }
 
     private String getSortKeyBytable(String tableName){
-        String key = "";
         JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
         String retrieveAllColumnsSql =
                 "select column_name from information_schema.columns where table_schema='public' and table_name=\'"
                         + tableName + "\'";
-        List<String> tableColumnList = jdbcTemplate.queryForList(retrieveAllColumnsSql,String.class);
-        return tableColumnList.get(0);
-      /*  StringBuilder tablePrimaryKeyBuilder = new StringBuilder();
-        if(tableColumnList.isEmpty()) {
-            log.warn("MD5 check would be skipped as the table " + tableName + "doesn't contain primary key.");
-        } else{
-            for(String primaryKeyField:tablePrimaryKeyList){
-                tablePrimaryKeyBuilder.append(primaryKeyField).append("||\',\'||");
-            }
-            key = tablePrimaryKeyBuilder.delete(tablePrimaryKeyBuilder.length()-7,tablePrimaryKeyBuilder.length()).toString();
-        }
-        return key;*/
+        List<String> tableColumnsList = jdbcTemplate.queryForList(retrieveAllColumnsSql,String.class);
+        return tableColumnsList.get(0);
     }
 
     private JdbcCursorItemReader<Map<String, Object>> buildOneRecordItemReader(final DataSource dataSource,

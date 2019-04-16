@@ -1,7 +1,7 @@
 ---
 applications:
 - name: datamigration-bill-service
-  memory: 6G
+  memory: 2G
   instances: 1
   path: target/data-migration-service-1.0-SNAPSHOT.jar
   services:
