@@ -42,6 +42,9 @@ public class DataVerificationService {
     @Autowired
     private DBHashSqlGenerator dbHashSqlGenerator;
 
+    private static final int MISMATCH_RECORDS_MAX_NUM = 100;
+    private static final String MORE_INDICATOR = "..more";
+
     public ResponseMessage dataVerificationForOneTable(String tableName) {
 
         ResponseMessage responseMessage = new ResponseMessage();
@@ -123,10 +126,10 @@ public class DataVerificationService {
 
         }
 
-        Map<String,Integer> queryResult = jdbcTemplate.query(sqlForTenantAndCount, new ResultSetExtractor<Map<String,Integer>>() {
+        Map<String,Integer> tenantAndCountMap = jdbcTemplate.query(sqlForTenantAndCount, new ResultSetExtractor<Map<String,Integer>>() {
             @Override
             public Map<String,Integer> extractData(ResultSet resultSet) throws SQLException {
-                Map map = new HashMap();
+                Map<String, Integer> map = new HashMap<>();
                 while (resultSet.next()) {
                     map.put(resultSet.getString(tableInfo.getTenantColumnName()), resultSet.getInt("tenant_count"));
 
@@ -137,14 +140,14 @@ public class DataVerificationService {
 
         List<TenantResult> tenantsResultList = new ArrayList<>();
         tableResult.setDataConsistent(true);
-        for (String tenant : queryResult.keySet()) {
+        for (String tenant : tenantAndCountMap.keySet()) {
             TenantThreadLocalHolder.setTenant(tenant);
             JdbcTemplate hanaJdbcTemplate = new JdbcTemplate(targetDataSource);
             int targetTenantCount = hanaJdbcTemplate.queryForObject("select count(*) from " + "\"" + tableInfo.getTargetTableName() + "\"",Integer.class);
             CountResult countResult = new CountResult();
             TenantResult tenantResult = new TenantResult();
             boolean tenantDataConsistent = true;
-            if(targetTenantCount != queryResult.get(tenant)){
+            if(targetTenantCount != tenantAndCountMap.get(tenant)){
                 tableResult.setDataConsistent(false);
                 tenantDataConsistent = false;
 
@@ -159,7 +162,7 @@ public class DataVerificationService {
                 Map<String,String> hanaMd5Result = hanaJdbcTemplate.query(hana_md5_sql, new ResultSetExtractor<Map<String,String>>() {
                     @Override
                     public Map<String,String> extractData(ResultSet resultSet) throws SQLException {
-                        Map map = new HashMap();
+                        Map<String, String> map = new HashMap<>();
                         while (resultSet.next()) {
                             map.put(resultSet.getString("tablePrimaryKey"), resultSet.getString("md5Result"));
 
@@ -169,15 +172,13 @@ public class DataVerificationService {
                 });
 
 
-
-              //  List<String> hana_md5_list =hanaJdbcTemplate.queryForList(hana_md5_sql,String.class);
                 JdbcTemplate postgresJdbcTemplate = new JdbcTemplate(sourceDataSource);
 
                 String postgres_md5_sql = dbHashSqlGenerator.generatePostgresMd5Sql(tableInfo, postgresJdbcTemplate);
                 Map<String,String> postgresMd5Result = jdbcTemplate.query(postgres_md5_sql, new ResultSetExtractor<Map<String,String>>() {
                     @Override
                     public Map<String,String> extractData(ResultSet resultSet) throws SQLException {
-                        Map map = new HashMap();
+                        Map<String, String> map = new HashMap<>();
                         while (resultSet.next()) {
                             map.put(resultSet.getString("tablePrimaryKey"), resultSet.getString("md5Result"));
 
@@ -192,15 +193,20 @@ public class DataVerificationService {
                         tableResult.setDataConsistent(false);
                         tenantDataConsistent = false;
                         failedRecords.add(primaryKeyValue);
+                    }
 
+                    if(failedRecords.size() == MISMATCH_RECORDS_MAX_NUM && postgresMd5Result.size() > MISMATCH_RECORDS_MAX_NUM ){
+                        failedRecords.add(MORE_INDICATOR);
+                        tenantResult.setInconsistentRecords(failedRecords);
+                        log.warn("Data verification only checked the first " + MISMATCH_RECORDS_MAX_NUM + " records for tenant (" + tenant + ") in table: " + tableName +", as the inconsistent records reaches the predefined max number.");
+                        break;
                     }
                 }
                 tenantResult.setInconsistentRecords(failedRecords);
-
             }
 
             if(!tenantDataConsistent){
-                countResult.setSourceCount(queryResult.get(tenant));
+                countResult.setSourceCount(tenantAndCountMap.get(tenant));
                 countResult.setTargetCount(targetTenantCount);
                 tenantResult.setTenant(tenant);
                 tenantResult.setCountResult(countResult);

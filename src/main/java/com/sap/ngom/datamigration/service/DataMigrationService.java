@@ -7,7 +7,6 @@ import com.sap.ngom.datamigration.listener.JobCompletionNotificationListener;
 import com.sap.ngom.datamigration.model.JobStatus;
 import com.sap.ngom.datamigration.model.MigrateRecord;
 import com.sap.ngom.datamigration.processor.CustomItemProcessor;
-import com.sap.ngom.datamigration.reader.CustomPagingReader;
 import com.sap.ngom.datamigration.util.DBConfigReader;
 import com.sap.ngom.datamigration.util.TableNameValidator;
 import com.sap.ngom.datamigration.util.TenantHelper;
@@ -26,16 +25,12 @@ import org.springframework.batch.core.repository.JobInstanceAlreadyCompleteExcep
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.repository.JobRestartException;
 import org.springframework.batch.item.ItemWriter;
-import org.springframework.batch.item.database.HibernatePagingItemReader;
 import org.springframework.batch.item.database.JdbcCursorItemReader;
 import org.springframework.batch.item.database.JdbcPagingItemReader;
 import org.springframework.batch.item.database.Order;
-import org.springframework.batch.item.database.builder.HibernatePagingItemReaderBuilder;
-import org.springframework.batch.item.database.orm.HibernateNativeQueryProvider;
 import org.springframework.batch.item.database.support.PostgresPagingQueryProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.context.annotation.AnnotationConfigApplicationContext;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.ColumnMapRowMapper;
@@ -44,7 +39,6 @@ import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
 import javax.sql.DataSource;
-import javax.xml.crypto.Data;
 import java.util.*;
 
 @Service
@@ -99,7 +93,7 @@ public class DataMigrationService {
         jobLauncher.setTaskExecutor(simpleAsyncTaskExecutor);
     }
 
-    public void triggerOneMigrationJob(String tableName) {
+    public void triggerOneMigrationJob(String tableName) throws Exception {
         tableNameValidator.tableNameValidation(tableName);
 
         String jobName = tableName + JOB_NAME_SUFFIX;
@@ -148,7 +142,7 @@ public class DataMigrationService {
         return batchJobParameterHolder.acquireJobLock(tableName);
     }
 
-    private Step createOneStep(String tenant, String table) {
+    private Step createOneStep(String tenant, String table) throws Exception {
         String targetNameSpace = dbConfigReader.getTargetNameSpace();
 
         Step tenantSpecificStep = stepBuilderFactory.get(table + "_" + tenant + "_" + "MigrationStep")
@@ -180,24 +174,8 @@ public class DataMigrationService {
         return tenantSpecificStep;
     }
 
-   /* private JdbcCursorItemReader<Map<String, Object>> buildItemReader(final DataSource dataSource, String tableName,
-            String tenant) {
-
-        String tenantName = tenantHelper.determineTenant(tableName);
-        JdbcCursorItemReader<Map<String, Object>> itemReader = new JdbcCursorItemReader<>();
-        itemReader.setDataSource(dataSource);
-        itemReader.setSql("select * from " + tableName + " where " + tenantName + " ='" + tenant + "'");
-        itemReader.setRowMapper(new ColumnMapRowMapper());
-        itemReader.setFetchSize(500);
-        itemReader.setVerifyCursorPosition(true);
-        //itemReader.setMaxRows(100);
-        //itemReader.setMaxItemCount(100);
-        return itemReader;
-    }
-    */
-
      private JdbcPagingItemReader<Map<String, Object>> buildPagingItemReader(final DataSource dataSource, String tableName,
-            String tenant){
+            String tenant) throws Exception {
 
         String tenantName = tenantHelper.determineTenant(tableName);
 
@@ -208,19 +186,14 @@ public class DataMigrationService {
 
         JdbcPagingItemReader<Map<String, Object>> itemReader = new JdbcPagingItemReader<>();
         itemReader.setDataSource(dataSource);
-        itemReader.setPageSize(2);
+        itemReader.setPageSize(500);
         itemReader.setQueryProvider(generateSqlPagingQueryProvider(tableName,tenantName,tenant));
         //itemReader.setParameterValues(sqlParameterValues);
         itemReader.setRowMapper(new ColumnMapRowMapper());
-        try {
-            itemReader.afterPropertiesSet();
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+        itemReader.afterPropertiesSet();
 
         return itemReader;
     }
-
 
     private PostgresPagingQueryProvider generateSqlPagingQueryProvider(String tableName, String tenantName,
             String tenant) {
@@ -239,11 +212,13 @@ public class DataMigrationService {
     private String getSortKeyBytable(String tableName){
         String key = "";
         JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
-        String retrievePrimaryKeySql = "select kc.column_name from information_schema.table_constraints tc join information_schema.key_column_usage kc on kc.table_name = \'" + tableName + "\' and kc.table_schema = \'public\' and kc.constraint_name = tc.constraint_name where tc.constraint_type = \'PRIMARY KEY\'  and kc.ordinal_position is not null order by column_name";
-        List<String> tablePrimaryKeyList = jdbcTemplate.queryForList(retrievePrimaryKeySql,String.class);
-
-        StringBuilder tablePrimaryKeyBuilder = new StringBuilder();
-        if(tablePrimaryKeyList.isEmpty()) {
+        String retrieveAllColumnsSql =
+                "select column_name from information_schema.columns where table_schema='public' and table_name=\'"
+                        + tableName + "\'";
+        List<String> tableColumnList = jdbcTemplate.queryForList(retrieveAllColumnsSql,String.class);
+        return tableColumnList.get(0);
+      /*  StringBuilder tablePrimaryKeyBuilder = new StringBuilder();
+        if(tableColumnList.isEmpty()) {
             log.warn("MD5 check would be skipped as the table " + tableName + "doesn't contain primary key.");
         } else{
             for(String primaryKeyField:tablePrimaryKeyList){
@@ -251,7 +226,7 @@ public class DataMigrationService {
             }
             key = tablePrimaryKeyBuilder.delete(tablePrimaryKeyBuilder.length()-7,tablePrimaryKeyBuilder.length()).toString();
         }
-        return key;
+        return key;*/
     }
 
     private JdbcCursorItemReader<Map<String, Object>> buildOneRecordItemReader(final DataSource dataSource,
@@ -311,7 +286,7 @@ public class DataMigrationService {
         return jobStatuses;
     }
     
-    public Set<String> triggerAllMigrationJobs() {
+    public Set<String> triggerAllMigrationJobs() throws Exception {
         Set<String> alreadyTriggeredTables = new HashSet<>();
         for(String tableName:dbConfigReader.getSourceTableNames()){
             if(isJobRunningOnTable(tableName)){

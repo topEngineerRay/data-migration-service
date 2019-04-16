@@ -52,7 +52,12 @@ public class DataMigrationController {
     public ResponseEntity triggerMigration()
     {
 
-        Set<String> alreadyTriggeredTables = dataMigrationService.triggerAllMigrationJobs();
+        Set<String> alreadyTriggeredTables = null;
+        try {
+            alreadyTriggeredTables = dataMigrationService.triggerAllMigrationJobs();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
         ResponseMessage responseMessage = new ResponseMessage();
         responseMessage.setStatus(Status.SUCCESS);
@@ -72,7 +77,11 @@ public class DataMigrationController {
             responseMessage.setMessage("Job can't be executed, currently another job is running for this table");
             return ResponseEntity.ok().body(responseMessage);
         }else{
-            dataMigrationService.triggerOneMigrationJob(tableName);
+            try {
+                dataMigrationService.triggerOneMigrationJob(tableName);
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
             responseMessage.setStatus(Status.SUCCESS);
             responseMessage.setMessage(TRIGGER_DATA_MIGRATION_SUCCESSFULLY);
             return ResponseEntity.ok().body(responseMessage);
