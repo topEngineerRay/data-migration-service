@@ -29,6 +29,7 @@ import org.springframework.batch.item.database.JdbcCursorItemReader;
 import org.springframework.batch.item.database.JdbcPagingItemReader;
 import org.springframework.batch.item.database.Order;
 import org.springframework.batch.item.database.support.PostgresPagingQueryProvider;
+import org.springframework.batch.item.support.AbstractItemStreamItemReader;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskExecutor;
@@ -174,11 +175,22 @@ public class DataMigrationService {
         return tenantSpecificStep;
     }
 
-     private JdbcPagingItemReader<Map<String, Object>> buildPagingItemReader(final DataSource dataSource, String tableName,
+    private AbstractItemStreamItemReader<Map<String, Object>> buildPagingItemReader(final DataSource dataSource,
+            String tableName,
             String tenant) throws Exception {
 
         String tenantName = tenantHelper.determineTenant(tableName);
+        List<String> sortKeysString = getSortKeyBytable(tableName);
 
+        if (sortKeysString.isEmpty()) {
+            return generateJdbcCursorItemReader(tableName, tenantName, tenant);
+        }
+
+        return generateJdbcPagingItemReader(dataSource, tableName, tenant, tenantName, sortKeysString);
+    }
+
+    private AbstractItemStreamItemReader<Map<String, Object>> generateJdbcPagingItemReader(DataSource dataSource,
+            String tableName, String tenant, String tenantName, List<String> sortKeysString) throws Exception {
         Map<String, Object> sqlParameterValues = new HashMap<>();
         sqlParameterValues.put("tableName", tableName);
         sqlParameterValues.put("tenantName", tenantName);
@@ -187,20 +199,29 @@ public class DataMigrationService {
         JdbcPagingItemReader<Map<String, Object>> itemReader = new JdbcPagingItemReader<>();
         itemReader.setDataSource(dataSource);
         itemReader.setPageSize(500);
-        itemReader.setQueryProvider(generateSqlPagingQueryProvider(tableName,tenantName,tenant));
+        itemReader.setQueryProvider(generateSqlPagingQueryProvider(tableName, tenantName, tenant, sortKeysString));
         //itemReader.setParameterValues(sqlParameterValues);
         itemReader.setRowMapper(new ColumnMapRowMapper());
         itemReader.afterPropertiesSet();
+        return itemReader;
+    }
 
+    //in case a table do not have primary key, we have to use the JdbcCursorItemReader
+    private JdbcCursorItemReader generateJdbcCursorItemReader(String tableName, String tenantName, String tenant) {
+        JdbcCursorItemReader<Map<String, Object>> itemReader = new JdbcCursorItemReader<>();
+        itemReader.setDataSource(dataSource);
+        itemReader.setSql("select * from " + tableName + " where " + tenantName + " ='" + tenant + "'");
+        itemReader.setRowMapper(new ColumnMapRowMapper());
         return itemReader;
     }
 
     private PostgresPagingQueryProvider generateSqlPagingQueryProvider(String tableName, String tenantName,
-            String tenant) {
+            String tenant, List<String> sortKeysString) {
         PostgresPagingQueryProvider provider = new PostgresPagingQueryProvider();
         Map<String, Order> sortKeys = new LinkedHashMap<>();
-        String sortKey = getSortKeyBytable(tableName);
-        sortKeys.put(sortKey, Order.ASCENDING);
+        for (String sortKey : sortKeysString) {
+            sortKeys.put(sortKey, Order.ASCENDING);
+        }
 
         provider.setSelectClause("select *");
         provider.setFromClause("from " + tableName);
@@ -209,13 +230,15 @@ public class DataMigrationService {
         return provider;
     }
 
-    private String getSortKeyBytable(String tableName){
+    private List<String> getSortKeyBytable(String tableName) {
         JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
-        String retrieveAllColumnsSql =
-                "select column_name from information_schema.columns where table_schema='public' and table_name=\'"
-                        + tableName + "\'";
-        List<String> tableColumnsList = jdbcTemplate.queryForList(retrieveAllColumnsSql,String.class);
-        return tableColumnsList.get(0);
+        String retrievePrimaryKeySql =
+                "select kc.column_name from information_schema.table_constraints tc join information_schema.key_column_usage kc on kc.table_name = \'"
+                        + tableName
+                        + "\' and kc.table_schema = \'public\' and kc.constraint_name = tc.constraint_name where tc.constraint_type = \'PRIMARY KEY\'  and kc.ordinal_position is not null order by column_name";
+        List<String> tablePrimaryKeyList = jdbcTemplate.queryForList(retrievePrimaryKeySql, String.class);
+        //what if the table do not have primary key?
+        return tablePrimaryKeyList;
     }
 
     private JdbcCursorItemReader<Map<String, Object>> buildOneRecordItemReader(final DataSource dataSource,

@@ -51,21 +51,21 @@ public class DataMigrationController {
     @PostMapping("/jobs")
     public ResponseEntity triggerMigration()
     {
-
         Set<String> alreadyTriggeredTables = null;
+        ResponseMessage responseMessage = new ResponseMessage();
         try {
             alreadyTriggeredTables = dataMigrationService.triggerAllMigrationJobs();
+
+            responseMessage.setStatus(Status.SUCCESS);
+            String reponstMessage = TRIGGER_DATA_MIGRATION_SUCCESSFULLY;
+            if(alreadyTriggeredTables.size()>0){
+                reponstMessage += " Tables: " + alreadyTriggeredTables.toString() + " migration will not be triggered, since there are other jobs running.";
+            }
+            responseMessage.setMessage(reponstMessage);
+
         } catch (Exception e) {
             e.printStackTrace();
         }
-
-        ResponseMessage responseMessage = new ResponseMessage();
-        responseMessage.setStatus(Status.SUCCESS);
-        String reponstMessage = TRIGGER_DATA_MIGRATION_SUCCESSFULLY;
-        if(alreadyTriggeredTables.size()>0){
-            reponstMessage += " Tables: " + alreadyTriggeredTables.toString() + " migration will not be triggered, since there are other jobs running.";
-        }
-        responseMessage.setMessage(reponstMessage);
         return ResponseEntity.ok().body(responseMessage);
     }
 

@@ -31,7 +31,7 @@ public class JobCompletionNotificationListener extends JobExecutionListenerSuppo
         batchJobParameterHolder.unLockJob(tableName);
 
         if (jobExecution.getStatus() == BatchStatus.FAILED) {
-            log.info("Job fail message: " + jobExecution.getAllFailureExceptions().toString());
+            log.warn("Job fail message: " + jobExecution.getAllFailureExceptions().toString());
         }
     }
 }
