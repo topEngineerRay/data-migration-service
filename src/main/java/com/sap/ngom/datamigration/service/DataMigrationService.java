@@ -191,10 +191,6 @@ public class DataMigrationService {
 
     private AbstractItemStreamItemReader<Map<String, Object>> generateJdbcPagingItemReader(DataSource dataSource,
             String tableName, String tenant, String tenantName, List<String> sortKeysString) throws Exception {
-        Map<String, Object> sqlParameterValues = new HashMap<>();
-        sqlParameterValues.put("tableName", tableName);
-        sqlParameterValues.put("tenantName", tenantName);
-        sqlParameterValues.put("tenant", tenant);
 
         JdbcPagingItemReader<Map<String, Object>> itemReader = new JdbcPagingItemReader<>();
         itemReader.setDataSource(dataSource);
