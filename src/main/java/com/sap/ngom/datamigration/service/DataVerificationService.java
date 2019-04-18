@@ -223,6 +223,7 @@ public class DataVerificationService {
             }
         }
 
+
         log.info("Data verification is completed for table: " + tableName);
         return tableResult;
     }
