@@ -26,11 +26,16 @@ import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.repository.JobRestartException;
 import org.springframework.batch.item.ItemWriter;
 import org.springframework.batch.item.database.JdbcCursorItemReader;
+import org.springframework.batch.item.database.JdbcPagingItemReader;
+import org.springframework.batch.item.database.Order;
+import org.springframework.batch.item.database.support.PostgresPagingQueryProvider;
+import org.springframework.batch.item.support.AbstractItemStreamItemReader;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.ColumnMapRowMapper;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
@@ -81,6 +86,9 @@ public class DataMigrationService {
 
     @Autowired
     private TableNameValidator tableNameValidator;
+
+    @Autowired
+    private DataVerificationService dataVerificationService;
 
     private static String JOB_NAME_SUFFIX = "_MigrationJob";
 
@@ -170,15 +178,63 @@ public class DataMigrationService {
         return tenantSpecificStep;
     }
 
-    private JdbcCursorItemReader<Map<String, Object>> buildItemReader(final DataSource dataSource, String tableName,
+    private AbstractItemStreamItemReader<Map<String, Object>> buildItemReader(final DataSource dataSource,
+            String tableName,
             String tenant) {
 
         String tenantName = tenantHelper.determineTenant(tableName);
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
+        List<String> sortKeysString = dataVerificationService.getPrimaryKeysByTable(tableName, jdbcTemplate);
+
+        if (sortKeysString.isEmpty()) {
+            return generateJdbcCursorItemReader(tableName, tenantName, tenant);
+        }
+
+        return generateJdbcPagingItemReader(dataSource, tableName, tenant, tenantName, sortKeysString);
+    }
+
+    private AbstractItemStreamItemReader<Map<String, Object>> generateJdbcPagingItemReader(DataSource dataSource,
+            String tableName, String tenant, String tenantName, List<String> sortKeysString) {
+
+        JdbcPagingItemReader<Map<String, Object>> itemReader = new JdbcPagingItemReader<>();
+        itemReader.setDataSource(dataSource);
+        itemReader.setPageSize(500);
+        itemReader.setQueryProvider(generateSqlPagingQueryProvider(tableName, tenantName, tenant, sortKeysString));
+        itemReader.setRowMapper(new ColumnMapRowMapper());
+        try {
+            itemReader.afterPropertiesSet();
+        } catch (Exception e) {
+           log.warn("error occurs when initial the itemReader："+e.getMessage());
+        }
+
+        return itemReader;
+    }
+
+    //in case a table do not have primary key, we have to use the JdbcCursorItemReader
+    private JdbcCursorItemReader generateJdbcCursorItemReader(String tableName, String tenantName, String tenant) {
         JdbcCursorItemReader<Map<String, Object>> itemReader = new JdbcCursorItemReader<>();
         itemReader.setDataSource(dataSource);
         itemReader.setSql("select * from " + tableName + " where " + tenantName + " ='" + tenant + "'");
         itemReader.setRowMapper(new ColumnMapRowMapper());
+
         return itemReader;
+    }
+
+    private PostgresPagingQueryProvider generateSqlPagingQueryProvider(String tableName, String tenantName,
+            String tenant, List<String> sortKeysString) {
+        PostgresPagingQueryProvider provider = new PostgresPagingQueryProvider();
+        Map<String, Order> sortKeys = new LinkedHashMap<>();
+
+        for (String sortKey : sortKeysString) {
+            sortKeys.put(sortKey, Order.ASCENDING);
+        }
+
+        provider.setSelectClause("select *");
+        provider.setFromClause("from " + tableName);
+        provider.setWhereClause("where " + tenantName + " ='" + tenant + "'");
+        provider.setSortKeys(sortKeys);
+
+        return provider;
     }
 
     private JdbcCursorItemReader<Map<String, Object>> buildOneRecordItemReader(final DataSource dataSource,
