@@ -150,7 +150,7 @@ public class DataMigrationService {
                 .listener(new BPStepListener(tenant))
                 .<Map<String, Object>, Map<String, Object>>chunk(CHUNK_SIZE).faultTolerant().noSkip(Exception.class)
                 .skipLimit(SKIP_LIMIT)
-                .reader(buildPagingItemReader(dataSource, table, tenant))
+                .reader(buildItemReader(dataSource, table, tenant))
                 .processor(new CustomItemProcessor())
                 .writer(buildItemWriter(detinationDataSource, table, targetNameSpace)).faultTolerant()
                 .noSkip(Exception.class).skipLimit(SKIP_LIMIT)
@@ -175,7 +175,7 @@ public class DataMigrationService {
         return tenantSpecificStep;
     }
 
-    private AbstractItemStreamItemReader<Map<String, Object>> buildPagingItemReader(final DataSource dataSource,
+    private AbstractItemStreamItemReader<Map<String, Object>> buildItemReader(final DataSource dataSource,
             String tableName,
             String tenant) throws Exception {
 
@@ -196,9 +196,9 @@ public class DataMigrationService {
         itemReader.setDataSource(dataSource);
         itemReader.setPageSize(500);
         itemReader.setQueryProvider(generateSqlPagingQueryProvider(tableName, tenantName, tenant, sortKeysString));
-        //itemReader.setParameterValues(sqlParameterValues);
         itemReader.setRowMapper(new ColumnMapRowMapper());
         itemReader.afterPropertiesSet();
+
         return itemReader;
     }
 
@@ -208,6 +208,7 @@ public class DataMigrationService {
         itemReader.setDataSource(dataSource);
         itemReader.setSql("select * from " + tableName + " where " + tenantName + " ='" + tenant + "'");
         itemReader.setRowMapper(new ColumnMapRowMapper());
+
         return itemReader;
     }
 
@@ -215,6 +216,7 @@ public class DataMigrationService {
             String tenant, List<String> sortKeysString) {
         PostgresPagingQueryProvider provider = new PostgresPagingQueryProvider();
         Map<String, Order> sortKeys = new LinkedHashMap<>();
+
         for (String sortKey : sortKeysString) {
             sortKeys.put(sortKey, Order.ASCENDING);
         }
@@ -223,6 +225,7 @@ public class DataMigrationService {
         provider.setFromClause("from " + tableName);
         provider.setWhereClause("where " + tenantName + " ='" + tenant + "'");
         provider.setSortKeys(sortKeys);
+
         return provider;
     }
 
@@ -233,7 +236,6 @@ public class DataMigrationService {
                         + tableName
                         + "\' and kc.table_schema = \'public\' and kc.constraint_name = tc.constraint_name where tc.constraint_type = \'PRIMARY KEY\'  and kc.ordinal_position is not null order by column_name";
         List<String> tablePrimaryKeyList = jdbcTemplate.queryForList(retrievePrimaryKeySql, String.class);
-        //what if the table do not have primary key?
         return tablePrimaryKeyList;
     }
 
