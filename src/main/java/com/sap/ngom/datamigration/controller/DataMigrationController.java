@@ -47,25 +47,19 @@ public class DataMigrationController {
         return dataMigrationService.getAllJobsStatus();
     }
 
-
     @PostMapping("/jobs")
-    public ResponseEntity triggerMigration()
-    {
-        Set<String> alreadyTriggeredTables = null;
+    public ResponseEntity triggerMigration() {
         ResponseMessage responseMessage = new ResponseMessage();
-        try {
-            alreadyTriggeredTables = dataMigrationService.triggerAllMigrationJobs();
+        Set<String> alreadyTriggeredTables = dataMigrationService.triggerAllMigrationJobs();
 
-            responseMessage.setStatus(Status.SUCCESS);
-            String reponstMessage = TRIGGER_DATA_MIGRATION_SUCCESSFULLY;
-            if(alreadyTriggeredTables.size()>0){
-                reponstMessage += " Tables: " + alreadyTriggeredTables.toString() + " migration will not be triggered, since there are other jobs running.";
-            }
-            responseMessage.setMessage(reponstMessage);
-
-        } catch (Exception e) {
-            e.printStackTrace();
+        responseMessage.setStatus(Status.SUCCESS);
+        String reponstMessage = TRIGGER_DATA_MIGRATION_SUCCESSFULLY;
+        if (alreadyTriggeredTables.size() > 0) {
+            reponstMessage += " Tables: " + alreadyTriggeredTables.toString()
+                    + " migration will not be triggered, since there are other jobs running.";
         }
+        responseMessage.setMessage(reponstMessage);
+
         return ResponseEntity.ok().body(responseMessage);
     }
 
@@ -76,12 +70,9 @@ public class DataMigrationController {
             responseMessage.setStatus(Status.FAILURE);
             responseMessage.setMessage("Job can't be executed, currently another job is running for this table");
             return ResponseEntity.ok().body(responseMessage);
-        }else{
-            try {
-                dataMigrationService.triggerOneMigrationJob(tableName);
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+        } else {
+            dataMigrationService.triggerOneMigrationJob(tableName);
+
             responseMessage.setStatus(Status.SUCCESS);
             responseMessage.setMessage(TRIGGER_DATA_MIGRATION_SUCCESSFULLY);
             return ResponseEntity.ok().body(responseMessage);

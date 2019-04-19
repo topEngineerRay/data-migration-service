@@ -87,6 +87,9 @@ public class DataMigrationService {
     @Autowired
     private TableNameValidator tableNameValidator;
 
+    @Autowired
+    private DataVerificationService dataVerificationService;
+
     private static String JOB_NAME_SUFFIX = "_MigrationJob";
 
     @PostConstruct
@@ -94,7 +97,7 @@ public class DataMigrationService {
         jobLauncher.setTaskExecutor(simpleAsyncTaskExecutor);
     }
 
-    public void triggerOneMigrationJob(String tableName) throws Exception {
+    public void triggerOneMigrationJob(String tableName) {
         tableNameValidator.tableNameValidation(tableName);
 
         String jobName = tableName + JOB_NAME_SUFFIX;
@@ -143,7 +146,7 @@ public class DataMigrationService {
         return batchJobParameterHolder.acquireJobLock(tableName);
     }
 
-    private Step createOneStep(String tenant, String table) throws Exception {
+    private Step createOneStep(String tenant, String table) {
         String targetNameSpace = dbConfigReader.getTargetNameSpace();
 
         Step tenantSpecificStep = stepBuilderFactory.get(table + "_" + tenant + "_" + "MigrationStep")
@@ -177,10 +180,11 @@ public class DataMigrationService {
 
     private AbstractItemStreamItemReader<Map<String, Object>> buildItemReader(final DataSource dataSource,
             String tableName,
-            String tenant) throws Exception {
+            String tenant) {
 
         String tenantName = tenantHelper.determineTenant(tableName);
-        List<String> sortKeysString = getSortKeyBytable(tableName);
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
+        List<String> sortKeysString = dataVerificationService.getPrimaryKeysByTable(tableName, jdbcTemplate);
 
         if (sortKeysString.isEmpty()) {
             return generateJdbcCursorItemReader(tableName, tenantName, tenant);
@@ -190,14 +194,18 @@ public class DataMigrationService {
     }
 
     private AbstractItemStreamItemReader<Map<String, Object>> generateJdbcPagingItemReader(DataSource dataSource,
-            String tableName, String tenant, String tenantName, List<String> sortKeysString) throws Exception {
+            String tableName, String tenant, String tenantName, List<String> sortKeysString) {
 
         JdbcPagingItemReader<Map<String, Object>> itemReader = new JdbcPagingItemReader<>();
         itemReader.setDataSource(dataSource);
         itemReader.setPageSize(500);
         itemReader.setQueryProvider(generateSqlPagingQueryProvider(tableName, tenantName, tenant, sortKeysString));
         itemReader.setRowMapper(new ColumnMapRowMapper());
-        itemReader.afterPropertiesSet();
+        try {
+            itemReader.afterPropertiesSet();
+        } catch (Exception e) {
+           log.warn("error occurs when initial the itemReader："+e.getMessage());
+        }
 
         return itemReader;
     }
@@ -227,16 +235,6 @@ public class DataMigrationService {
         provider.setSortKeys(sortKeys);
 
         return provider;
-    }
-
-    private List<String> getSortKeyBytable(String tableName) {
-        JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
-        String retrievePrimaryKeySql =
-                "select kc.column_name from information_schema.table_constraints tc join information_schema.key_column_usage kc on kc.table_name = \'"
-                        + tableName
-                        + "\' and kc.table_schema = \'public\' and kc.constraint_name = tc.constraint_name where tc.constraint_type = \'PRIMARY KEY\'  and kc.ordinal_position is not null order by column_name";
-        List<String> tablePrimaryKeyList = jdbcTemplate.queryForList(retrievePrimaryKeySql, String.class);
-        return tablePrimaryKeyList;
     }
 
     private JdbcCursorItemReader<Map<String, Object>> buildOneRecordItemReader(final DataSource dataSource,
@@ -296,7 +294,7 @@ public class DataMigrationService {
         return jobStatuses;
     }
     
-    public Set<String> triggerAllMigrationJobs() throws Exception {
+    public Set<String> triggerAllMigrationJobs() {
         Set<String> alreadyTriggeredTables = new HashSet<>();
         for(String tableName:dbConfigReader.getSourceTableNames()){
             if(isJobRunningOnTable(tableName)){

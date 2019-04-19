@@ -19,7 +19,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.LinkedHashMap;
 
 @Log4j2
 @Service
@@ -111,9 +110,9 @@ public class DataVerificationService {
         tableInfo.setSourceTableName(tableName);
         tableInfo.setTargetTableName(dbConfigReader.getTargetTableName(tableName));
         tableInfo.setTenantColumnName(tenantHelper.determineTenant(tableName));
-        String retrievePrimaryKeySql = "select kc.column_name from information_schema.table_constraints tc join information_schema.key_column_usage kc on kc.table_name = \'" + tableName + "\' and kc.table_schema = \'public\' and kc.constraint_name = tc.constraint_name where tc.constraint_type = \'PRIMARY KEY\'  and kc.ordinal_position is not null order by column_name";
         String sqlForTenantAndCount = "select count(" + tableInfo.getTenantColumnName() + ") as tenant_count, " + tableInfo.getTenantColumnName() + " from " + tableName + " where " + tableInfo.getTenantColumnName() + " is not null group by " + tableInfo.getTenantColumnName();
-        List<String> tablePrimaryKeyList = jdbcTemplate.queryForList(retrievePrimaryKeySql,String.class);
+
+        List<String> tablePrimaryKeyList = getPrimaryKeysByTable(tableName, jdbcTemplate);
 
         StringBuilder tablePrimaryKeyBuilder = new StringBuilder();
         if(tablePrimaryKeyList.isEmpty()) {
@@ -226,4 +225,13 @@ public class DataVerificationService {
         log.info("Data verification is completed for table: " + tableName);
         return tableResult;
     }
+
+    public List<String> getPrimaryKeysByTable(String tableName, JdbcTemplate jdbcTemplate) {
+        String retrievePrimaryKeySql =
+                "select kc.column_name from information_schema.table_constraints tc join information_schema.key_column_usage kc on kc.table_name = \'"
+                        + tableName
+                        + "\' and kc.table_schema = \'public\' and kc.constraint_name = tc.constraint_name where tc.constraint_type = \'PRIMARY KEY\'  and kc.ordinal_position is not null order by column_name";
+        return jdbcTemplate.queryForList(retrievePrimaryKeySql, String.class);
+    }
+
 }
