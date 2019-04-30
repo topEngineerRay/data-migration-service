@@ -19,5 +19,5 @@
 	    </springProfile>
 	</root>
     <!-- request metrics are reported using INFO level, so make sure the instrumentation loggers are set to that level -->
-    <logger name="com.sap.hcp.cf" level="DEBUG"/>
+    <logger name="com.sap.hcp.cf" level="INFO"/>
 </configuration>
