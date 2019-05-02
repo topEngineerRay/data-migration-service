@@ -51,25 +51,25 @@ public class DataCleanupService {
                     hanaJdbcTemplate.execute("delete from " + "\"" + targetTableName + "\"");
                 }catch (DataAccessException e) {
                     hasError.set(true);
-                    log.error("++++ Exception occurs for tenant: " + tenant + " in table: " + tableName + e.getMessage());
+                    log.error("[cleanup] ++++ Exception occurs when execute SQL DELETE for tenant: " + tenant + " in table: " + tableName + e.getMessage());
                 }
                 tenantLatch.countDown();
-                log.info("Cleanup done for tenant: " + tenant + " in table: " + tableName);
+                log.info("[cleanup] Cleanup done for tenant: " + tenant + " in table: " + tableName);
             });
         }
 
         try {
             if(!tenantLatch.await(120, TimeUnit.SECONDS)) {
-                log.error("Timeout for table: " + tableName);
+                log.error("[cleanup] Timeout for table: " + tableName + " [120 seconds]");
             }
         } catch (InterruptedException e) {
-            log.error("Unexpected error occurs:", e);
+            log.error("[cleanup] tenantLatch.await interrupted exception occurs:", e);
         }
         executorService.shutdown();
         if(hasError.get() || tenantLatch.getCount() != 0) {
-            throw new DataCleanupException("Error occurs when delete data in table: " + tableName);
+            throw new DataCleanupException("[cleanup] Error occurs when delete data in table: " + tableName);
         }
-        log.info("<<<<< Cleanup done for table: " + tableName);
+        log.info("[cleanup] <<<<< Cleanup done for table: " + tableName);
     }
 
     public void cleanData4AllTables() {
@@ -87,20 +87,20 @@ public class DataCleanupService {
                     hasError.set(true);
                 }
                 tableLatch.countDown();
-                log.info("Cleanup done for table: " + tableName);
+                log.info("[cleanup][all] Cleanup done for table: " + tableName);
             });
         }
         try {
             if(!tableLatch.await(180, TimeUnit.SECONDS)) {
-                log.error("Timeout for all tables");
+                log.error("[cleanup][all] Timeout for all tables" + " [180 seconds]");
             }
         } catch (InterruptedException e) {
-            log.error("Unexpected error occurs:", e);
+            log.error("[cleanup][all] tenantLatch.await interrupted exception occurs:", e);
         }
         executorService.shutdown();
         if(hasError.get() || tableLatch.getCount() != 0) {
-            throw new DataCleanupException("Error occurs when delete data, check log for details.");
+            throw new DataCleanupException("[cleanup][all] Error occurs when delete data, check log for details.");
         }
-        log.info("******* Cleanup done for all tables." );
+        log.info("[cleanup][all] ******* Cleanup done for all tables." );
     }
 }
