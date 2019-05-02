@@ -45,8 +45,6 @@ public class InitializerService {
     private static final Integer THREADS_NUMBERS = 10;
 
     public void initialize4OneTable(String tableName) throws Exception{
-        String targetTableName = dbConfigReader.getTargetTableName(tableName);
-
         List<String> tenantList = tenantHelper.getAllTenants(tableName);
 
         ExecuteInitilization(tenantList);
@@ -83,20 +81,19 @@ public class InitializerService {
                         try {
                             imClient.createManagedInstance(tenantId, this.creationManagedInstanceCallback, instanceCreationOptions);
                         } catch (ImClientException e) {
-                            throw new HanaDataSourceDeterminationException("Create managed instance failed", e);
+                            throw new HanaDataSourceDeterminationException("[Initialization] Create managed instance failed", e);
                         }
                         try {
                             Object instanceManager = asyncResult.take();
                             managedServiceInstance = (ManagedServiceInstance) instanceManager;
-                            log.info("Created managed instance for tenant: {} {}", tenantId, managedServiceInstance.getId());
                         } catch (InterruptedException e) {
-                            log.warn("Interrupted!", e);
+                            log.warn("[Initialization] ManagedServiceInstance interrupted exception occurs:", e);
                             // Restore interrupted state...
                             Thread.currentThread().interrupt();
                         }
                     }
                     if (managedServiceInstance == null) {
-                        throw new HanaDataSourceDeterminationException("Create managed instance failed for tenant: " + tenantId);
+                        throw new HanaDataSourceDeterminationException("[Initialization] Create managed instance failed for tenant: " + tenantId);
                     }
                     // call HDI deployer
                     try {
@@ -104,12 +101,10 @@ public class InitializerService {
                         dataSource = hdiDeployerClient.createDataSource(managedServiceInstance);
                         if(managedServiceInstance.getId().equals(tenantId)) {
                             multiTenantDataSourceHolder.storeDataSource(tenantId, dataSource);
-                        } else {
-                            log.error("Map dataSource error: {} {}", tenantId, managedServiceInstance.getId());
                         }
                     } catch (HDIDeploymentException e) {
                         hasError.set(true);
-                        log.error("Determine data source failed", e);
+                        log.error("[Initialization] Determine data source failed", e);
                     }
                 }
 
@@ -118,15 +113,15 @@ public class InitializerService {
         }
 
         if(!tenantLatch.await(3000, TimeUnit.SECONDS)) {  // wait until latch counted down to 0
-            log.error("Count down when time out: {}", tenantLatch.getCount());
+            log.error("[Initialization] Count down when time out: {}/{}", tenantLatch.getCount(), tenantList.size());
         }
         Long endTimestamp = System.currentTimeMillis();
 
-        log.info("Initialize all tenants {}", (endTimestamp - startTimestamp));
+        log.info("[Initialization] Initialize all tenants {}", (endTimestamp - startTimestamp));
         executorService.shutdown();
 
         if(hasError.get() || tenantLatch.getCount() != 0) {
-            throw new HDIDeploymentInitializerException("error occurs!check log!!");
+            throw new HDIDeploymentInitializerException("[Initialization] error occurs, check log for details.");
         }
 
     }
@@ -143,29 +138,30 @@ public class InitializerService {
         List allTenants = new ArrayList(tenantSet);
         ExecuteInitilization(allTenants);
 
-        log.info("******* Initialize done for all tables." );
+        log.info("[Initialization] ******* Initialize done for all tables." );
     }
 
     private InstanceManagerClient.CreationCallback creationManagedInstanceCallback = new InstanceManagerClient.CreationCallback() {
         @Override
         public void onCreationSuccess(ManagedServiceInstance managedServiceInstance) {
+            log.info("[Initialization] Created managed instance for tenant: {}", managedServiceInstance.getId());
             BlockingQueue<ManagedServiceInstance> asyncResult = tenantAsyncResults.get(managedServiceInstance.getId());
             try {
                 asyncResult.put(managedServiceInstance);
             } catch (InterruptedException e) {
-                log.error("Interrupted!", e);
+                log.error("[Initialization][CreationSuccess] interrupted exception occurs:", e);
                 Thread.currentThread().interrupt();
             }
         }
 
         @Override
         public void onCreationError(String s, String s1) {
-            log.error("Create managed instance error: {} {}", s, s1);
+            log.error("[Initialization] Create managed instance error: {} {}", s, s1);
             BlockingQueue<ManagedServiceInstance> asyncResult = tenantAsyncResults.get(s);
             try {
                 asyncResult.put(null);
             } catch (InterruptedException e) {
-                log.error("Interrupted!", e);
+                log.error("[Initialization][CreationError] interrupted exception occurs:", e);
                 Thread.currentThread().interrupt();
             }
         }
