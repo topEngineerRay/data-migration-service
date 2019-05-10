@@ -7,5 +7,6 @@ applications:
   services:
     - postgresql
     - managed-hana
+    - applogs
   env:
     VAULT_AUTH_TOKEN: "${vault.generateToken()}"
