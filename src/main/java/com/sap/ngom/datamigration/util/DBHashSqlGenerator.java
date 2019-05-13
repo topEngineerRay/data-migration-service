@@ -14,30 +14,22 @@ import java.util.TreeMap;
 @Component
 public class DBHashSqlGenerator {
 
+    private static final String POSTGRES_COLUMN_NAME = "column_name";
+
+    private static final String POSTGRES_COLUMN_TYPE = "udt_name";
+
+
     public String generatePostgresMd5Sql(TableInfo tableInfo, JdbcTemplate jdbcTemplate){
 
-        String retrieveColumnInfoSql = "select column_name,udt_name from information_schema.columns where table_schema=\'public\' AND table_name="+ "\'" + tableInfo.getSourceTableName() + "\' AND column_name !=\'" + tableInfo.getTenantColumnName() + "\'";
-
-        SortedMap<String,String> columnInfoMap = jdbcTemplate.query(retrieveColumnInfoSql, new ResultSetExtractor<SortedMap<String,String>>() {
-            @Override
-            public SortedMap<String,String> extractData(ResultSet resultSet) throws SQLException {
-                SortedMap<String,String> map = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
-                while (resultSet.next()) {
-                    map.put(resultSet.getString("column_name"), resultSet.getString("udt_name"));
-
-                }
-                return map;
-            }
-        });
-
+        SortedMap<String, String> columnInfoMap = getAllColumnsNameAndType(tableInfo,jdbcTemplate);
         StringBuilder md5SqlBuilder = new StringBuilder();
-
+        final String operatorAND = "||";
         for(Map.Entry<String,String> entry :columnInfoMap.entrySet()){
             switch (entry.getValue()){
                 case "varchar":
                 case "text":
                 case "bytea":
-                    md5SqlBuilder.append("coalesce(").append(entry.getKey()).append(",\' \')||");
+                    md5SqlBuilder.append("coalesce(").append(entry.getKey()).append(",\' \')").append(operatorAND);
                     break;
                 case "int4":
                 case "numeric":
@@ -47,23 +39,37 @@ public class DBHashSqlGenerator {
                 case "uuid":
                 case "bpchar":
                 case "char":
-                    md5SqlBuilder.append("coalesce(").append(entry.getKey()).append("::text,\' \')||");
+                    md5SqlBuilder.append("coalesce(").append(entry.getKey()).append("::text,\' \')").append(operatorAND);
                     break;
                 case "timestamp":
-                    md5SqlBuilder.append("coalesce(to_char(").append(entry.getKey()).append(",\'YYYY-MM-DD HH24:MI:SS.MS\'),\' \')||");
+                    md5SqlBuilder.append("coalesce(to_char(").append(entry.getKey()).append(",\'YYYY-MM-DD HH24:MI:SS.MS\'),\' \')").append(operatorAND);
                     break;
                 case "bool":
-                    md5SqlBuilder.append("coalesce(").append(entry.getKey()).append("::integer::text,\' \')||");
+                    md5SqlBuilder.append("coalesce(").append(entry.getKey()).append("::integer::text,\' \')").append(operatorAND);
                     break;
                 case "date":
-                    md5SqlBuilder.append("coalesce(to_char(").append(entry.getKey()).append(",\'YYYY-MM-DD\'),\' \')||");
+                    md5SqlBuilder.append("coalesce(to_char(").append(entry.getKey()).append(",\'YYYY-MM-DD\'),\' \')").append(operatorAND);
                     break;
                 default:
                     break;
             }
         }
-        md5SqlBuilder.delete(md5SqlBuilder.length()-2,md5SqlBuilder.length());
+        md5SqlBuilder.delete(md5SqlBuilder.length()-operatorAND.length(),md5SqlBuilder.length());
         return "select " + tableInfo.getPrimaryKey() +" as \"tablePrimaryKey\", upper(md5(" + md5SqlBuilder.toString() + ")) as \"md5Result\" from " + tableInfo.getSourceTableName() + " where " + tableInfo.getTenantColumnName() + "=\'" + tableInfo.getTenant() + "\'";
+    }
+
+    private SortedMap<String, String> getAllColumnsNameAndType(TableInfo tableInfo, JdbcTemplate jdbcTemplate) {
+        String retrieveColumnInfoSql = "select column_name,udt_name from information_schema.columns where table_schema=\'public\' AND table_name="+ "\'" + tableInfo.getSourceTableName() + "\' AND column_name !=\'" + tableInfo.getTenantColumnName() + "\'";
+        return jdbcTemplate.query(retrieveColumnInfoSql, new ResultSetExtractor<SortedMap<String,String>>() {
+                @Override
+                public SortedMap<String,String> extractData(ResultSet resultSet) throws SQLException {
+                    SortedMap<String,String> map = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
+                    while (resultSet.next()) {
+                        map.put(resultSet.getString(POSTGRES_COLUMN_NAME), resultSet.getString(POSTGRES_COLUMN_TYPE));
+                    }
+                    return map;
+                }
+            });
     }
 
 
@@ -111,4 +117,11 @@ public class DBHashSqlGenerator {
         md5SqlBuilder.delete(md5SqlBuilder.length()-1,md5SqlBuilder.length());
         return "select " + tableInfo.getPrimaryKey() + " as \"tablePrimaryKey\" , to_nvarchar(hash_md5(" + md5SqlBuilder.toString() + ")) as \"md5Result\"  from " + "\"" + tableInfo.getTargetTableName() + "\"";
     }
+
+
+//    public String generateSortedSelectAllSqlPostgres(){
+//
+//    }
+
+
 }
