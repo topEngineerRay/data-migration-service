@@ -13,8 +13,8 @@ import java.util.*;
 public class DBHashSqlGenerator {
 
     private static final String POSTGRES_COLUMN_NAME = "column_name";
-
     private static final String POSTGRES_COLUMN_TYPE = "udt_name";
+    private static final String COMMA_DELIMITER = ",";
 
 
     public String generatePostgresMd5Sql(TableInfo tableInfo, JdbcTemplate jdbcTemplate) {
@@ -122,24 +122,22 @@ public class DBHashSqlGenerator {
         SortedMap<String, String> columnInfoMap = getAllColumnsNameAndType(tableInfo, jdbcTemplate);
         StringBuilder selectAllSqlBuilder = new StringBuilder("select ");
         selectAllSqlBuilder.append(tableInfo.getPrimaryKey()).append(" as \"tablePrimaryKey\", ");
-        final String commaDelimiter = ",";
         for (Map.Entry<String, String> entry : columnInfoMap.entrySet()) {
             switch(entry.getValue()){
                 case "bool":
-                    selectAllSqlBuilder.append(entry.getKey()).append("::integer").append(commaDelimiter);
+                    selectAllSqlBuilder.append(entry.getKey()).append("::integer").append(COMMA_DELIMITER);
                     break;
                 case "timestamp":
-                    selectAllSqlBuilder.append("to_char(").append(entry.getKey()).append(",\'YYYY-MM-DD HH24:MI:SS.MS\')").append(commaDelimiter);
+                    selectAllSqlBuilder.append("to_char(").append(entry.getKey()).append(",\'YYYY-MM-DD HH24:MI:SS.MS\')").append(COMMA_DELIMITER);
                     break;
                 default:
-                    selectAllSqlBuilder.append(entry.getKey()).append(commaDelimiter);
+                    selectAllSqlBuilder.append(entry.getKey()).append(COMMA_DELIMITER);
                     break;
 
             }
 
         }
-
-        selectAllSqlBuilder.delete(selectAllSqlBuilder.length() - commaDelimiter.length(), selectAllSqlBuilder.length());
+        selectAllSqlBuilder.delete(selectAllSqlBuilder.length() - COMMA_DELIMITER.length(), selectAllSqlBuilder.length());
         return selectAllSqlBuilder.append(" from ").append(tableInfo.getSourceTableName()).toString();
     }
 
@@ -160,15 +158,14 @@ public class DBHashSqlGenerator {
         });
         StringBuilder selectAllSqlHANABuilder = new StringBuilder("select ");
         selectAllSqlHANABuilder.append(tableInfo.getPrimaryKey()).append(" as \"tablePrimaryKey\", ");
-        final String commaDelimiter = ",";
         for (Map.Entry<String, String> entry : columnInfoMap.entrySet()) {
             if(entry.getValue().equals("TIMESTAMP")) {
-                selectAllSqlHANABuilder.append("to_varchar(").append(entry.getKey()).append(",\'YYYY-MM-DD HH24:MI:SS.FF3\')").append(commaDelimiter);
+                selectAllSqlHANABuilder.append("to_varchar(").append(entry.getKey()).append(",\'YYYY-MM-DD HH24:MI:SS.FF3\')").append(COMMA_DELIMITER);
             } else {
-                selectAllSqlHANABuilder.append(entry.getKey()).append(commaDelimiter);
+                selectAllSqlHANABuilder.append(entry.getKey()).append(COMMA_DELIMITER);
             }
         }
-        selectAllSqlHANABuilder.delete(selectAllSqlHANABuilder.length() - commaDelimiter.length(), selectAllSqlHANABuilder.length());
+        selectAllSqlHANABuilder.delete(selectAllSqlHANABuilder.length() - COMMA_DELIMITER.length(), selectAllSqlHANABuilder.length());
         return selectAllSqlHANABuilder.append(" from ").append("\"").append(tableInfo.getTargetTableName()).append("\"").toString();
 
     }
@@ -183,11 +180,10 @@ public class DBHashSqlGenerator {
 
     public String generateWhereStatFindSpecificPKSql(String primaryKey, Set<String> pkValues) {
         StringBuilder whereStatementFindSpecificPK = new StringBuilder(" where ");
-        final String valueDelimiter = ",";
-        String[] pkColumnNames = primaryKey.split(valueDelimiter);
+        String[] pkColumnNames = primaryKey.split(COMMA_DELIMITER);
 
         for(String pkValue : pkValues) {
-            String[] pkEachFieldValues = pkValue.split(valueDelimiter);
+            String[] pkEachFieldValues = pkValue.split(COMMA_DELIMITER);
             whereStatementFindSpecificPK.append(" ( ");
             for(int i = 0; i < pkColumnNames.length; i++) {
                 whereStatementFindSpecificPK.append(pkColumnNames[i]).append("= '").append(pkEachFieldValues[i]).append("' AND ");
@@ -195,9 +191,7 @@ public class DBHashSqlGenerator {
             whereStatementFindSpecificPK.delete(whereStatementFindSpecificPK.length() - 4,whereStatementFindSpecificPK.length());
             whereStatementFindSpecificPK.append(") OR ");
         }
-
         whereStatementFindSpecificPK.delete(whereStatementFindSpecificPK.length() - 3, whereStatementFindSpecificPK.length());
-
         return whereStatementFindSpecificPK.toString();
     }
 }
