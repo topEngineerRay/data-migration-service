@@ -4,7 +4,7 @@ import com.sap.ngom.datamigration.configuration.hana.TenantThreadLocalHolder;
 import com.sap.ngom.datamigration.model.*;
 import com.sap.ngom.datamigration.model.verification.*;
 import com.sap.ngom.datamigration.util.DBConfigReader;
-import com.sap.ngom.datamigration.util.DBHashSqlGenerator;
+import com.sap.ngom.datamigration.util.DBSqlGenerator;
 import com.sap.ngom.datamigration.util.TenantHelper;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -14,7 +14,6 @@ import org.springframework.jdbc.core.ResultSetExtractor;
 import org.springframework.stereotype.Service;
 import javax.sql.DataSource;
 import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -38,7 +37,7 @@ public class DataVerificationService {
     private TenantHelper tenantHelper;
 
     @Autowired
-    private DBHashSqlGenerator dbHashSqlGenerator;
+    private DBSqlGenerator dbSqlGenerator;
 
 
     private static final int MISMATCH_RECORDS_MAX_NUM = 100;
@@ -106,17 +105,13 @@ public class DataVerificationService {
     }
 
 
-
     private TableResult verifyOneTableResult(String tableName) {
 
-
         log.info("Data verification is starting for table: " + tableName);
-
         TableResult tableResult = new TableResult();
         JdbcTemplate jdbcTemplate = new JdbcTemplate(sourceDataSource);
         TableInfo tableInfo = initialTableInfo(tableName, jdbcTemplate);
         String sqlForTenantAndCount = "select count(" + tableInfo.getTenantColumnName() + ") as tenant_count, " + tableInfo.getTenantColumnName() + " from " + tableName + " where " + tableInfo.getTenantColumnName() + " is not null group by " + tableInfo.getTenantColumnName();
-
         Map<String,Integer> tenantAndCountMap = jdbcTemplate.query(sqlForTenantAndCount, resultSet -> {
             Map<String, Integer> map = new HashMap<>();
             while (resultSet.next()) {
@@ -144,13 +139,7 @@ public class DataVerificationService {
             } else if( hanaRecordsCount != 0 && !tableInfo.getPrimaryKey().isEmpty()){
 
                 //MD5 content check
-                Map<String, VerifiedStatus> failedRecordMap = md5Check(tableInfo);
-
-                //Java Equals check for current emoji issue (same emoji generate different md5 value in two dbs)
-                checkRecordsIfActualEqual(filterMapOnVerifiedStatus(failedRecordMap,VerifiedStatus.CHECKAGAIN), tableInfo);
-
-                List<String> failedRecords = failedRecordMap.entrySet().stream()
-                                .filter(x -> x.getValue().equals(VerifiedStatus.INCONSISTENT))
+                List<String> failedRecords = md5Check(tableInfo).entrySet().stream()
                                 .map( x -> x.getKey()).collect(Collectors.toList());
 
                 if(!failedRecords.isEmpty()) {
@@ -180,55 +169,45 @@ public class DataVerificationService {
         return tableResult;
     }
 
-    public List<String> getPrimaryKeysByTable(String tableName, JdbcTemplate jdbcTemplate) {
-        String retrievePrimaryKeySql =
-                "select kc.column_name from information_schema.table_constraints tc join information_schema.key_column_usage kc on kc.table_name = \'"
-                        + tableName
-                        + "\' and kc.table_schema = \'public\' and kc.constraint_name = tc.constraint_name where tc.constraint_type = \'PRIMARY KEY\'  and kc.ordinal_position is not null order by column_name";
-        return jdbcTemplate.queryForList(retrievePrimaryKeySql, String.class);
-    }
-
-    private Map<String, VerifiedStatus> filterMapOnVerifiedStatus(Map<String, VerifiedStatus> recordsMap, VerifiedStatus verifiedStatus) {
+    private Map<String, FailedRecordsStatus> filterMapOnVerifiedStatus(Map<String, FailedRecordsStatus> recordsMap, FailedRecordsStatus verifiedStatus) {
         return recordsMap.entrySet().stream()
                 .filter( x -> x.getValue().equals(verifiedStatus))
                 .collect(Collectors.toMap(Map.Entry::getKey,Map.Entry::getValue));
     }
 
 
-    private Map<String, VerifiedStatus> md5Check(TableInfo tableInfo) {
+    private Map<String, FailedRecordsStatus> md5Check(TableInfo tableInfo) {
         log.info("Hash consistent check is starting for tenant (" + tableInfo.getTenant() + ") in table: " + tableInfo.getSourceTableName());
         JdbcTemplate hanaJdbcTemplate = new JdbcTemplate(targetDataSource);
         JdbcTemplate postgresJdbcTemplate = new JdbcTemplate(sourceDataSource);
 
-        String hanaMd5Sql = dbHashSqlGenerator.generateHanaMd5Sql(tableInfo,hanaJdbcTemplate);
+        final String hanaMd5Sql = dbSqlGenerator.generateHanaMd5Sql(tableInfo,hanaJdbcTemplate);
         Map<String,String> hanaMd5Result = getPKAndMD5ValueFromDB(hanaJdbcTemplate,hanaMd5Sql);
-        String postgresMd5Sql = dbHashSqlGenerator.generatePostgresMd5Sql(tableInfo, postgresJdbcTemplate);
+        final String postgresMd5Sql = dbSqlGenerator.generatePostgresMd5Sql(tableInfo, postgresJdbcTemplate);
         Map<String,String> postgresMd5Result = getPKAndMD5ValueFromDB(postgresJdbcTemplate,postgresMd5Sql);
 
-        Map<String, VerifiedStatus> failedRecordMap = new HashMap<>();
+        Map<String, FailedRecordsStatus> failedRecordMap = new HashMap<>();
         for(Map.Entry<String, String> entry : postgresMd5Result.entrySet()){
             final String recordPkValue = entry.getKey();
             final String recordMd5ValuePostgres = entry.getValue();
 
             if(!hanaMd5Result.containsKey(recordPkValue)) {
-                failedRecordMap.put(recordPkValue, VerifiedStatus.INCONSISTENT);
+                failedRecordMap.put(recordPkValue, FailedRecordsStatus.INCONSISTENT);
             } else if(!hanaMd5Result.get(recordPkValue).equals(recordMd5ValuePostgres)) {
-                failedRecordMap.put(recordPkValue, VerifiedStatus.CHECKAGAIN);
+                failedRecordMap.put(recordPkValue, FailedRecordsStatus.CHECKAGAIN);
             }
-            if(failedRecordMap.size() == MISMATCH_RECORDS_MAX_NUM && postgresMd5Result.size() > MISMATCH_RECORDS_MAX_NUM ){
-                Map<String, VerifiedStatus> needDoubleCheckFailedRecords = failedRecordMap.entrySet().stream()
-                        .filter( x -> x.getValue().equals(VerifiedStatus.CHECKAGAIN))
-                        .collect(Collectors.toMap(Map.Entry::getKey,Map.Entry::getValue));
-                checkRecordsIfActualEqual(needDoubleCheckFailedRecords, tableInfo);
+            if(failedRecordMap.size() >= MISMATCH_RECORDS_MAX_NUM && postgresMd5Result.size() > MISMATCH_RECORDS_MAX_NUM ){
+                failedRecordMap = updateFailedRecordsMapByJavaEquals(filterMapOnVerifiedStatus(failedRecordMap, FailedRecordsStatus.CHECKAGAIN), tableInfo);
             }
-            if(failedRecordMap.size() == MISMATCH_RECORDS_MAX_NUM && postgresMd5Result.size() > MISMATCH_RECORDS_MAX_NUM ){
-                failedRecordMap.put(MORE_INDICATOR, VerifiedStatus.INCONSISTENT);
+            if(failedRecordMap.size() >= MISMATCH_RECORDS_MAX_NUM && postgresMd5Result.size() > MISMATCH_RECORDS_MAX_NUM ){
+                failedRecordMap.put(MORE_INDICATOR, FailedRecordsStatus.INCONSISTENT);
                 log.warn("Data verification only checked the first " + MISMATCH_RECORDS_MAX_NUM + " records for tenant (" + tableInfo.getTenant() + ") in table: " + tableInfo.getSourceTableName() +", as the inconsistent records reaches the predefined max number.");
                 break;
             }
         }
 
-        return failedRecordMap;
+        //Java Equals check for current emoji issue (same emoji generate different md5 value in two dbs)
+        return updateFailedRecordsMapByJavaEquals(filterMapOnVerifiedStatus(failedRecordMap, FailedRecordsStatus.CHECKAGAIN), tableInfo);
     }
 
     private Map<String, String> getPKAndMD5ValueFromDB(JdbcTemplate jdbcTemplate, String sql) {
@@ -238,7 +217,6 @@ public class DataVerificationService {
                 Map<String, String> map = new HashMap<>();
                 while (resultSet.next()) {
                     map.put(resultSet.getString(PK_COLUMN_LABEL), resultSet.getString(MD5_COLUMN_LABEL));
-
                 }
                 return map;
             }
@@ -249,11 +227,8 @@ public class DataVerificationService {
         return jdbcTemplate.query(sql, new ResultSetExtractor<Map<String,List<String>>>() {
             @Override
             public Map<String,List<String>> extractData(ResultSet resultSet) throws SQLException {
-                final ResultSetMetaData metaData = resultSet.getMetaData();
-
-                final int columnCount = metaData.getColumnCount();
+                final int columnCount = resultSet.getMetaData().getColumnCount();
                 final Map<String,List<String>> recordList = new HashMap<>();
-
 
                 while(resultSet.next()){
                     final List<String> fieldValues = new ArrayList<>();
@@ -263,7 +238,6 @@ public class DataVerificationService {
                         }
                     }
                     recordList.put(resultSet.getString(PK_COLUMN_LABEL),fieldValues);
-
                 }
                 return recordList;
             }
@@ -275,43 +249,43 @@ public class DataVerificationService {
         tableInfo.setSourceTableName(tableName);
         tableInfo.setTargetTableName(dbConfigReader.getTargetTableName(tableName));
         tableInfo.setTenantColumnName(tenantHelper.determineTenant(tableName));
-        List<String> tablePrimaryKeyList = getPrimaryKeysByTable(tableName, jdbcTemplate);
+        List<String> tablePrimaryKeyList = dbSqlGenerator.getPrimaryKeysByTable(tableName, jdbcTemplate);
 
         StringBuilder tablePrimaryKeyBuilder = new StringBuilder();
         if(tablePrimaryKeyList.isEmpty()) {
+            tableInfo.setPrimaryKey("");
             log.warn("MD5 check would be skipped as the table " + tableName + "doesn't contain primary key.");
         } else{
             for(String primaryKeyField:tablePrimaryKeyList){
                 tablePrimaryKeyBuilder.append(primaryKeyField).append(PK_DELIMITER);
             }
             tableInfo.setPrimaryKey(tablePrimaryKeyBuilder.delete(tablePrimaryKeyBuilder.length()-7,tablePrimaryKeyBuilder.length()).toString());
-
         }
         return tableInfo;
     }
 
-    private void checkRecordsIfActualEqual(Map<String, VerifiedStatus> failedRecordMap, TableInfo tableInfo) {
+    private Map<String, FailedRecordsStatus> updateFailedRecordsMapByJavaEquals(Map<String, FailedRecordsStatus> failedRecordMap, TableInfo tableInfo) {
         if(failedRecordMap.isEmpty()){
-            return;
+            return new HashMap<>();
         }
 
         final JdbcTemplate hanaJdbcTemplate = new JdbcTemplate(targetDataSource);
         final JdbcTemplate postgresJdbcTemplate = new JdbcTemplate(sourceDataSource);
-        final String whereStatement = dbHashSqlGenerator.generateWhereStatFindSpecificPKSql(tableInfo.getPrimaryKey().replace(PK_DELIMITER, COMMA_DELIMITER),failedRecordMap.keySet());
-        final String selectAllSqlPostgres = dbHashSqlGenerator.generateSortedSelectAllSqlPostgres(tableInfo, postgresJdbcTemplate) + whereStatement ;
-        final String selectAllSqlHANA = dbHashSqlGenerator.generateSortedSelectAllSqlHANA(tableInfo,hanaJdbcTemplate) + whereStatement;
+        final String whereStatement = dbSqlGenerator.generateWhereStatFindSpecificPKSql(tableInfo.getPrimaryKey().replace(PK_DELIMITER, COMMA_DELIMITER),failedRecordMap.keySet());
+        final String selectAllSqlPostgres = dbSqlGenerator.generateSortedSelectAllSqlPostgres(tableInfo, postgresJdbcTemplate) + whereStatement ;
+        final String selectAllSqlHANA = dbSqlGenerator.generateSortedSelectAllSqlHANA(tableInfo,hanaJdbcTemplate) + whereStatement;
 
         Map<String,List<String>> getRelevantRecordsPostgres = getPKAndWholeFieldsFromDB(postgresJdbcTemplate, selectAllSqlPostgres);
-
         Map<String,List<String>> getRelevantRecordsHANA = getPKAndWholeFieldsFromDB(hanaJdbcTemplate, selectAllSqlHANA);
 
         for(Map.Entry<String, List<String>> entry : getRelevantRecordsPostgres.entrySet()) {
             final String pkValue = entry.getKey();
             if(!entry.getValue().equals(getRelevantRecordsHANA.get(pkValue))){
-                failedRecordMap.put(pkValue,VerifiedStatus.INCONSISTENT);
+                failedRecordMap.put(pkValue, FailedRecordsStatus.INCONSISTENT);
             } else{
-                failedRecordMap.put(pkValue,VerifiedStatus.CONSISTENT);
+                failedRecordMap.remove(pkValue);
             }
         }
+        return failedRecordMap;
     }
 }

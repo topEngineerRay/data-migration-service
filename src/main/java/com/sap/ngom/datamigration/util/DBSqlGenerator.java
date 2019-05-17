@@ -10,16 +10,17 @@ import java.sql.SQLException;
 import java.util.*;
 
 @Component
-public class DBHashSqlGenerator {
+public class DBSqlGenerator {
 
     private static final String POSTGRES_COLUMN_NAME = "column_name";
     private static final String POSTGRES_COLUMN_TYPE = "udt_name";
+    private static final String HANA_COLUMN_NAME = "COLUMN_NAME";
+    private static final String HANA_COLUMN_TYPE = "DATA_TYPE_NAME";
     private static final String COMMA_DELIMITER = ",";
-
-
+    
     public String generatePostgresMd5Sql(TableInfo tableInfo, JdbcTemplate jdbcTemplate) {
 
-        SortedMap<String, String> columnInfoMap = getAllColumnsNameAndType(tableInfo, jdbcTemplate);
+        SortedMap<String, String> columnInfoMap = getAllColumnsNameAndTypeForPostgres(tableInfo, jdbcTemplate);
         StringBuilder md5SqlBuilder = new StringBuilder();
         final String operatorAND = "||";
         for (Map.Entry<String, String> entry : columnInfoMap.entrySet()) {
@@ -56,7 +57,7 @@ public class DBHashSqlGenerator {
         return "select " + tableInfo.getPrimaryKey() + " as \"tablePrimaryKey\", upper(md5(" + md5SqlBuilder.toString() + ")) as \"md5Result\" from " + tableInfo.getSourceTableName() + " where " + tableInfo.getTenantColumnName() + "=\'" + tableInfo.getTenant() + "\'";
     }
 
-    private SortedMap<String, String> getAllColumnsNameAndType(TableInfo tableInfo, JdbcTemplate jdbcTemplate) {
+    private SortedMap<String, String> getAllColumnsNameAndTypeForPostgres(TableInfo tableInfo, JdbcTemplate jdbcTemplate) {
         String retrieveColumnInfoSql = "select column_name,udt_name from information_schema.columns where table_schema=\'public\' AND table_name=" + "\'" + tableInfo.getSourceTableName() + "\' AND column_name !=\'" + tableInfo.getTenantColumnName() + "\'";
         return jdbcTemplate.query(retrieveColumnInfoSql, new ResultSetExtractor<SortedMap<String, String>>() {
             @Override
@@ -71,22 +72,26 @@ public class DBHashSqlGenerator {
     }
 
 
-    public String generateHanaMd5Sql(TableInfo tableInfo, JdbcTemplate jdbcTemplate) {
+    private SortedMap<String, String> getAllColumnsNameAndTypeForHANA(TableInfo tableInfo, JdbcTemplate jdbcTemplate) {
         String retrieveColumnInfoSql = "select COLUMN_NAME, DATA_TYPE_NAME from SYS.TABLE_COLUMNS WHERE TABLE_NAME=" + "\'" + tableInfo.getTargetTableName() + "\' AND COLUMN_NAME !=\'" + tableInfo.getTenantColumnName().toUpperCase() + "\'";
 
-        SortedMap<String, String> columnInfoMap = jdbcTemplate.query(retrieveColumnInfoSql, new ResultSetExtractor<SortedMap<String, String>>() {
+        return jdbcTemplate.query(retrieveColumnInfoSql, new ResultSetExtractor<SortedMap<String, String>>() {
             @Override
             public SortedMap<String, String> extractData(ResultSet resultSet) throws SQLException {
                 SortedMap<String, String> map = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
                 while (resultSet.next()) {
-                    map.put(resultSet.getString("COLUMN_NAME"), resultSet.getString("DATA_TYPE_NAME"));
+                    map.put(resultSet.getString(HANA_COLUMN_NAME), resultSet.getString(HANA_COLUMN_TYPE));
 
                 }
                 return map;
             }
         });
-        StringBuilder md5SqlBuilder = new StringBuilder();
+    }
 
+
+    public String generateHanaMd5Sql(TableInfo tableInfo, JdbcTemplate jdbcTemplate) {
+        SortedMap<String, String> columnInfoMap = getAllColumnsNameAndTypeForHANA(tableInfo, jdbcTemplate);
+        StringBuilder md5SqlBuilder = new StringBuilder();
         for (Map.Entry<String, String> entry : columnInfoMap.entrySet()) {
             switch (entry.getValue()) {
                 case "NVARCHAR":
@@ -118,8 +123,7 @@ public class DBHashSqlGenerator {
 
 
     public String generateSortedSelectAllSqlPostgres(TableInfo tableInfo, JdbcTemplate jdbcTemplate) {
-
-        SortedMap<String, String> columnInfoMap = getAllColumnsNameAndType(tableInfo, jdbcTemplate);
+        SortedMap<String, String> columnInfoMap = getAllColumnsNameAndTypeForPostgres(tableInfo, jdbcTemplate);
         StringBuilder selectAllSqlBuilder = new StringBuilder("select ");
         selectAllSqlBuilder.append(tableInfo.getPrimaryKey()).append(" as \"tablePrimaryKey\", ");
         for (Map.Entry<String, String> entry : columnInfoMap.entrySet()) {
@@ -133,29 +137,14 @@ public class DBHashSqlGenerator {
                 default:
                     selectAllSqlBuilder.append(entry.getKey()).append(COMMA_DELIMITER);
                     break;
-
             }
-
         }
         selectAllSqlBuilder.delete(selectAllSqlBuilder.length() - COMMA_DELIMITER.length(), selectAllSqlBuilder.length());
         return selectAllSqlBuilder.append(" from ").append(tableInfo.getSourceTableName()).toString();
     }
 
     public String generateSortedSelectAllSqlHANA(TableInfo tableInfo, JdbcTemplate jdbcTemplate) {
-        String retrieveColumnInfoSql = "select COLUMN_NAME, DATA_TYPE_NAME from SYS.TABLE_COLUMNS WHERE TABLE_NAME=" + "\'" + tableInfo.getTargetTableName() + "\' AND COLUMN_NAME !=\'" + tableInfo.getTenantColumnName().toUpperCase() + "\'";
-
-        SortedMap<String, String> columnInfoMap = jdbcTemplate.query(retrieveColumnInfoSql, new ResultSetExtractor<SortedMap<String, String>>() {
-            @Override
-            public SortedMap<String, String> extractData(ResultSet resultSet) throws SQLException {
-                SortedMap<String, String> map = new TreeMap<>(String.CASE_INSENSITIVE_ORDER);
-                while (resultSet.next()) {
-                    map.put(resultSet.getString("COLUMN_NAME"), resultSet.getString("DATA_TYPE_NAME"));
-
-                }
-                return map;
-            }
-
-        });
+        SortedMap<String, String> columnInfoMap = getAllColumnsNameAndTypeForHANA(tableInfo, jdbcTemplate);
         StringBuilder selectAllSqlHANABuilder = new StringBuilder("select ");
         selectAllSqlHANABuilder.append(tableInfo.getPrimaryKey()).append(" as \"tablePrimaryKey\", ");
         for (Map.Entry<String, String> entry : columnInfoMap.entrySet()) {
