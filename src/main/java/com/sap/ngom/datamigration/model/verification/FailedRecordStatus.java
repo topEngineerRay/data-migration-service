@@ -1,5 +1,5 @@
 package com.sap.ngom.datamigration.model.verification;
 
-public enum FailedRecordsStatus {
+public enum FailedRecordStatus {
     INCONSISTENT,CHECKAGAIN
 }
