@@ -8,6 +8,7 @@ import com.sap.ngom.datamigration.model.JobStatus;
 import com.sap.ngom.datamigration.model.MigrateRecord;
 import com.sap.ngom.datamigration.processor.CustomItemProcessor;
 import com.sap.ngom.datamigration.util.DBConfigReader;
+import com.sap.ngom.datamigration.util.DBSqlGenerator;
 import com.sap.ngom.datamigration.util.TableNameValidator;
 import com.sap.ngom.datamigration.util.TenantHelper;
 import com.sap.ngom.datamigration.writer.GenericItemWriter;
@@ -88,7 +89,7 @@ public class DataMigrationService {
     private TableNameValidator tableNameValidator;
 
     @Autowired
-    private DataVerificationService dataVerificationService;
+    private DBSqlGenerator dbSqlGenerator;
 
     private static String JOB_NAME_SUFFIX = "_MigrationJob";
 
@@ -184,7 +185,7 @@ public class DataMigrationService {
 
         String tenantName = tenantHelper.determineTenant(tableName);
         JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
-        List<String> sortKeysString = dataVerificationService.getPrimaryKeysByTable(tableName, jdbcTemplate);
+        List<String> sortKeysString = dbSqlGenerator.getPrimaryKeysByTable(tableName, jdbcTemplate);
 
         if (sortKeysString.isEmpty()) {
             return generateJdbcCursorItemReader(tableName, tenantName, tenant);

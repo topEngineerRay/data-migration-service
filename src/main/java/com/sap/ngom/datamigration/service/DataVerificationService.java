@@ -4,7 +4,7 @@ import com.sap.ngom.datamigration.configuration.hana.TenantThreadLocalHolder;
 import com.sap.ngom.datamigration.model.*;
 import com.sap.ngom.datamigration.model.verification.*;
 import com.sap.ngom.datamigration.util.DBConfigReader;
-import com.sap.ngom.datamigration.util.DBHashSqlGenerator;
+import com.sap.ngom.datamigration.util.DBSqlGenerator;
 import com.sap.ngom.datamigration.util.TenantHelper;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,10 +15,8 @@ import org.springframework.stereotype.Service;
 import javax.sql.DataSource;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Log4j2
 @Service
@@ -39,10 +37,17 @@ public class DataVerificationService {
     private TenantHelper tenantHelper;
 
     @Autowired
-    private DBHashSqlGenerator dbHashSqlGenerator;
+    private DBSqlGenerator dbSqlGenerator;
+
 
     private static final int MISMATCH_RECORDS_MAX_NUM = 100;
     private static final String MORE_INDICATOR = "..more";
+    private static final String PK_DELIMITER = "||\',\'||";
+    private static final String COMMA_DELIMITER = ",";
+    private static final String PK_COLUMN_LABEL = "tablePrimaryKey";
+    private static final String MD5_COLUMN_LABEL = "md5Result";
+
+
 
     public ResponseMessage dataVerificationForOneTable(String tableName) {
 
@@ -100,138 +105,189 @@ public class DataVerificationService {
     }
 
 
-
     private TableResult verifyOneTableResult(String tableName) {
-        log.info("Data verification is starting for table: " + tableName);
 
+        log.info("Data verification is starting for table: " + tableName);
         TableResult tableResult = new TableResult();
         JdbcTemplate jdbcTemplate = new JdbcTemplate(sourceDataSource);
-        TableInfo tableInfo = new TableInfo();
-        tableInfo.setSourceTableName(tableName);
-        tableInfo.setTargetTableName(dbConfigReader.getTargetTableName(tableName));
-        tableInfo.setTenantColumnName(tenantHelper.determineTenant(tableName));
+        TableInfo tableInfo = initialTableInfo(tableName, jdbcTemplate);
         String sqlForTenantAndCount = "select count(" + tableInfo.getTenantColumnName() + ") as tenant_count, " + tableInfo.getTenantColumnName() + " from " + tableName + " where " + tableInfo.getTenantColumnName() + " is not null group by " + tableInfo.getTenantColumnName();
+        Map<String,Integer> tenantAndCountMap = jdbcTemplate.query(sqlForTenantAndCount, resultSet -> {
+            Map<String, Integer> map = new HashMap<>();
+            while (resultSet.next()) {
+                map.put(resultSet.getString(tableInfo.getTenantColumnName()), resultSet.getInt("tenant_count"));
 
-        List<String> tablePrimaryKeyList = getPrimaryKeysByTable(tableName, jdbcTemplate);
-
-        StringBuilder tablePrimaryKeyBuilder = new StringBuilder();
-        if(tablePrimaryKeyList.isEmpty()) {
-            log.warn("MD5 check would be skipped as the table " + tableName + "doesn't contain primary key.");
-        } else{
-            for(String primaryKeyField:tablePrimaryKeyList){
-                tablePrimaryKeyBuilder.append(primaryKeyField).append("||\',\'||");
             }
-            tableInfo.setPrimaryKey(tablePrimaryKeyBuilder.delete(tablePrimaryKeyBuilder.length()-7,tablePrimaryKeyBuilder.length()).toString());
-
-        }
-
-        Map<String,Integer> tenantAndCountMap = jdbcTemplate.query(sqlForTenantAndCount, new ResultSetExtractor<Map<String,Integer>>() {
-            @Override
-            public Map<String,Integer> extractData(ResultSet resultSet) throws SQLException {
-                Map<String, Integer> map = new HashMap<>();
-                while (resultSet.next()) {
-                    map.put(resultSet.getString(tableInfo.getTenantColumnName()), resultSet.getInt("tenant_count"));
-
-                }
-                return map;
-            }
+            return map;
         });
 
         List<TenantResult> tenantsResultList = new ArrayList<>();
         tableResult.setDataConsistent(true);
-        for (String tenant : tenantAndCountMap.keySet()) {
+        for (Map.Entry<String,Integer> entry : tenantAndCountMap.entrySet()) {
+            final String tenant = entry.getKey();
+            final int postgresRecordsCount = entry.getValue();
             TenantThreadLocalHolder.setTenant(tenant);
+            tableInfo.setTenant(tenant);
             JdbcTemplate hanaJdbcTemplate = new JdbcTemplate(targetDataSource);
-            int targetTenantCount = hanaJdbcTemplate.queryForObject("select count(*) from " + "\"" + tableInfo.getTargetTableName() + "\"",Integer.class);
+            int hanaRecordsCount = hanaJdbcTemplate.queryForObject("select count(*) from " + "\"" + tableInfo.getTargetTableName() + "\"",Integer.class);
             CountResult countResult = new CountResult();
             TenantResult tenantResult = new TenantResult();
             boolean tenantDataConsistent = true;
-            if(targetTenantCount != tenantAndCountMap.get(tenant)){
+            if(postgresRecordsCount != hanaRecordsCount){
                 tableResult.setDataConsistent(false);
                 tenantDataConsistent = false;
+            } else if( hanaRecordsCount != 0 && !tableInfo.getPrimaryKey().isEmpty()){
 
-            } else if(targetTenantCount != 0 && !tablePrimaryKeyList.isEmpty()){
-                 /*
-                  *  MD5 content check
-                  */
-                log.info("Hash consistent check is starting for tenant (" + tenant + ") in table: " + tableName);
-                tableInfo.setTenant(tenant);
-                String hana_md5_sql = dbHashSqlGenerator.generateHanaMd5Sql(tableInfo,hanaJdbcTemplate);
+                //MD5 content check
+                List<String> failedRecords = md5Check(tableInfo).entrySet().stream()
+                                .map( x -> x.getKey()).collect(Collectors.toList());
 
-                Map<String,String> hanaMd5Result = hanaJdbcTemplate.query(hana_md5_sql, new ResultSetExtractor<Map<String,String>>() {
-                    @Override
-                    public Map<String,String> extractData(ResultSet resultSet) throws SQLException {
-                        Map<String, String> map = new HashMap<>();
-                        while (resultSet.next()) {
-                            map.put(resultSet.getString("tablePrimaryKey"), resultSet.getString("md5Result"));
-
-                        }
-                        return map;
-                    }
-                });
-
-
-                JdbcTemplate postgresJdbcTemplate = new JdbcTemplate(sourceDataSource);
-
-                String postgres_md5_sql = dbHashSqlGenerator.generatePostgresMd5Sql(tableInfo, postgresJdbcTemplate);
-                Map<String,String> postgresMd5Result = jdbcTemplate.query(postgres_md5_sql, new ResultSetExtractor<Map<String,String>>() {
-                    @Override
-                    public Map<String,String> extractData(ResultSet resultSet) throws SQLException {
-                        Map<String, String> map = new HashMap<>();
-                        while (resultSet.next()) {
-                            map.put(resultSet.getString("tablePrimaryKey"), resultSet.getString("md5Result"));
-
-                        }
-                        return map;
-                    }
-                });
-
-                List<String> failedRecords = new ArrayList<>();
-                for(String primaryKeyValue: postgresMd5Result.keySet()){
-                    if(!hanaMd5Result.containsKey(primaryKeyValue) || !hanaMd5Result.get(primaryKeyValue).equals(postgresMd5Result.get(primaryKeyValue))){
-                        tableResult.setDataConsistent(false);
-                        tenantDataConsistent = false;
-                        failedRecords.add(primaryKeyValue);
-                    }
-
-                    if(failedRecords.size() == MISMATCH_RECORDS_MAX_NUM && postgresMd5Result.size() > MISMATCH_RECORDS_MAX_NUM ){
-                        failedRecords.add(MORE_INDICATOR);
-                        tenantResult.setInconsistentRecords(failedRecords);
-                        log.warn("Data verification only checked the first " + MISMATCH_RECORDS_MAX_NUM + " records for tenant (" + tenant + ") in table: " + tableName +", as the inconsistent records reaches the predefined max number.");
-                        break;
-                    }
+                if(!failedRecords.isEmpty()) {
+                    tableResult.setDataConsistent(false);
+                    tenantDataConsistent = false;
+                    tenantResult.setInconsistentRecords(failedRecords);
                 }
-                tenantResult.setInconsistentRecords(failedRecords);
             }
 
             if(!tenantDataConsistent){
                 countResult.setSourceCount(tenantAndCountMap.get(tenant));
-                countResult.setTargetCount(targetTenantCount);
+                countResult.setTargetCount(hanaRecordsCount);
                 tenantResult.setTenant(tenant);
                 tenantResult.setCountResult(countResult);
                 tenantsResultList.add(tenantResult);
             }
-
             log.info("Data verification is completed for tenant (" + tenant + ") in table: " + tableName);
         }
         if(!tableResult.getDataConsistent()){
             tableResult.setTenants(tenantsResultList);
             tableResult.setTable(tableName);
-            if(!tablePrimaryKeyList.isEmpty()){
-                tableResult.setPrimaryKey(tableInfo.getPrimaryKey().replace("||\',\'||",","));
+            if(!tableInfo.getPrimaryKey().isEmpty()){
+                tableResult.setPrimaryKey(tableInfo.getPrimaryKey().replace(PK_DELIMITER,COMMA_DELIMITER));
             }
         }
-
         log.info("Data verification is completed for table: " + tableName);
         return tableResult;
     }
 
-    public List<String> getPrimaryKeysByTable(String tableName, JdbcTemplate jdbcTemplate) {
-        String retrievePrimaryKeySql =
-                "select kc.column_name from information_schema.table_constraints tc join information_schema.key_column_usage kc on kc.table_name = \'"
-                        + tableName
-                        + "\' and kc.table_schema = \'public\' and kc.constraint_name = tc.constraint_name where tc.constraint_type = \'PRIMARY KEY\'  and kc.ordinal_position is not null order by column_name";
-        return jdbcTemplate.queryForList(retrievePrimaryKeySql, String.class);
+    private Map<String, FailedRecordStatus> md5Check(TableInfo tableInfo) {
+        log.info("Hash consistent check is starting for tenant (" + tableInfo.getTenant() + ") in table: " + tableInfo.getSourceTableName());
+        JdbcTemplate hanaJdbcTemplate = new JdbcTemplate(targetDataSource);
+        JdbcTemplate postgresJdbcTemplate = new JdbcTemplate(sourceDataSource);
+
+        final String hanaMd5Sql = dbSqlGenerator.generateHanaMd5Sql(tableInfo,hanaJdbcTemplate);
+        Map<String,String> hanaMd5Result = getPKAndMD5ValueFromDB(hanaJdbcTemplate,hanaMd5Sql);
+        final String postgresMd5Sql = dbSqlGenerator.generatePostgresMd5Sql(tableInfo, postgresJdbcTemplate);
+        Map<String,String> postgresMd5Result = getPKAndMD5ValueFromDB(postgresJdbcTemplate,postgresMd5Sql);
+
+        Map<String, FailedRecordStatus> failedRecordMap = new HashMap<>();
+        for(Map.Entry<String, String> entry : postgresMd5Result.entrySet()){
+            final String recordPkValue = entry.getKey();
+            final String recordMd5ValuePostgres = entry.getValue();
+
+            if(!hanaMd5Result.containsKey(recordPkValue)) {
+                failedRecordMap.put(recordPkValue, FailedRecordStatus.INCONSISTENT);
+            } else if(!hanaMd5Result.get(recordPkValue).equals(recordMd5ValuePostgres)) {
+                failedRecordMap.put(recordPkValue, FailedRecordStatus.CHECKAGAIN);
+            }
+            if(failedRecordMap.size() >= MISMATCH_RECORDS_MAX_NUM && postgresMd5Result.size() > MISMATCH_RECORDS_MAX_NUM ){
+                 updateFailedRecordsMapByJavaEquals(failedRecordMap, tableInfo);
+            }
+            if(failedRecordMap.size() >= MISMATCH_RECORDS_MAX_NUM && postgresMd5Result.size() > MISMATCH_RECORDS_MAX_NUM ){
+                failedRecordMap.put(MORE_INDICATOR, FailedRecordStatus.INCONSISTENT);
+                log.warn("Data verification only checked the first " + MISMATCH_RECORDS_MAX_NUM + " records for tenant (" + tableInfo.getTenant() + ") in table: " + tableInfo.getSourceTableName() +", as the inconsistent records reaches the predefined max number.");
+                break;
+            }
+        }
+
+        //Java Equals check for current emoji issue (same emoji generate different md5 value in two dbs)
+        updateFailedRecordsMapByJavaEquals(failedRecordMap, tableInfo);
+        return failedRecordMap;
     }
 
+    private Map<String, String> getPKAndMD5ValueFromDB(JdbcTemplate jdbcTemplate, String sql) {
+       return jdbcTemplate.query(sql, new ResultSetExtractor<Map<String,String>>() {
+            @Override
+            public Map<String,String> extractData(ResultSet resultSet) throws SQLException {
+                Map<String, String> map = new HashMap<>();
+                while (resultSet.next()) {
+                    map.put(resultSet.getString(PK_COLUMN_LABEL), resultSet.getString(MD5_COLUMN_LABEL));
+                }
+                return map;
+            }
+        });
+    }
+
+    private Map<String, List<String>> getPKAndWholeFieldsFromDB(JdbcTemplate jdbcTemplate, String sql) {
+        return jdbcTemplate.query(sql, new ResultSetExtractor<Map<String,List<String>>>() {
+            @Override
+            public Map<String,List<String>> extractData(ResultSet resultSet) throws SQLException {
+                final int columnCount = resultSet.getMetaData().getColumnCount();
+                final Map<String,List<String>> recordList = new HashMap<>();
+
+                while(resultSet.next()){
+                    final List<String> fieldValues = new ArrayList<>();
+                    for (int i = 1; i <= columnCount; i++) {
+                        if (resultSet.getString(i) != null) {
+                            fieldValues.add(resultSet.getString(i));
+                        }
+                    }
+                    recordList.put(resultSet.getString(PK_COLUMN_LABEL),fieldValues);
+                }
+                return recordList;
+            }
+        });
+    }
+
+    private TableInfo initialTableInfo(String tableName, JdbcTemplate jdbcTemplate) {
+        TableInfo tableInfo = new TableInfo();
+        tableInfo.setSourceTableName(tableName);
+        tableInfo.setTargetTableName(dbConfigReader.getTargetTableName(tableName));
+        tableInfo.setTenantColumnName(tenantHelper.determineTenant(tableName));
+        List<String> tablePrimaryKeyList = dbSqlGenerator.getPrimaryKeysByTable(tableName, jdbcTemplate);
+
+        StringBuilder tablePrimaryKeyBuilder = new StringBuilder();
+        if(tablePrimaryKeyList.isEmpty()) {
+            tableInfo.setPrimaryKey("");
+            log.warn("MD5 check would be skipped as the table " + tableName + "doesn't contain primary key.");
+        } else{
+            for(String primaryKeyField:tablePrimaryKeyList){
+                tablePrimaryKeyBuilder.append(primaryKeyField).append(PK_DELIMITER);
+            }
+            tableInfo.setPrimaryKey(tablePrimaryKeyBuilder.delete(tablePrimaryKeyBuilder.length()-7,tablePrimaryKeyBuilder.length()).toString());
+        }
+        return tableInfo;
+    }
+
+    public void updateFailedRecordsMapByJavaEquals(Map<String, FailedRecordStatus> failedRecordMap, TableInfo tableInfo) {
+
+        Map<String, FailedRecordStatus> needDoubleCheckRecordsMap = filterMapOnVerifiedStatus(failedRecordMap, FailedRecordStatus.CHECKAGAIN);
+
+        if(needDoubleCheckRecordsMap.isEmpty()){
+            return;
+        }
+
+        final JdbcTemplate hanaJdbcTemplate = new JdbcTemplate(targetDataSource);
+        final JdbcTemplate postgresJdbcTemplate = new JdbcTemplate(sourceDataSource);
+        final String whereStatement = dbSqlGenerator.generateWhereStatFindSpecificPKSql(tableInfo.getPrimaryKey().replace(PK_DELIMITER, COMMA_DELIMITER),needDoubleCheckRecordsMap.keySet());
+        final String selectAllSqlPostgres = dbSqlGenerator.generateSortedSelectAllSqlPostgres(tableInfo, postgresJdbcTemplate) + whereStatement ;
+        final String selectAllSqlHANA = dbSqlGenerator.generateSortedSelectAllSqlHANA(tableInfo,hanaJdbcTemplate) + whereStatement;
+
+        Map<String,List<String>> getRelevantRecordsPostgres = getPKAndWholeFieldsFromDB(postgresJdbcTemplate, selectAllSqlPostgres);
+        Map<String,List<String>> getRelevantRecordsHANA = getPKAndWholeFieldsFromDB(hanaJdbcTemplate, selectAllSqlHANA);
+
+        for(Map.Entry<String, List<String>> entry : getRelevantRecordsPostgres.entrySet()) {
+            final String pkValue = entry.getKey();
+            if(!entry.getValue().equals(getRelevantRecordsHANA.get(pkValue))){
+                failedRecordMap.put(pkValue, FailedRecordStatus.INCONSISTENT);
+            } else{
+                failedRecordMap.remove(pkValue);
+            }
+        }
+    }
+
+    private Map<String, FailedRecordStatus> filterMapOnVerifiedStatus(Map<String, FailedRecordStatus> recordsMap, FailedRecordStatus verifiedStatus) {
+        return recordsMap.entrySet().stream()
+                .filter( x -> x.getValue().equals(verifiedStatus))
+                .collect(Collectors.toMap(Map.Entry::getKey,Map.Entry::getValue));
+    }
 }
