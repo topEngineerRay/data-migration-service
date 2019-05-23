@@ -8,7 +8,7 @@ import org.springframework.web.client.RestTemplate;
 
 import javax.sql.DataSource;
 
-@Configuration
+@Configuration("data-migration-hana-data-source-configuration")
 public class HANADataSourceConfiguration {
 
     @Bean("targetDataSource")
