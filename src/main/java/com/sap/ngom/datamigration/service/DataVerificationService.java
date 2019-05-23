@@ -140,7 +140,7 @@ public class DataVerificationService {
 
                 //MD5 content check
                 List<String> failedRecords = md5Check(tableInfo).entrySet().stream()
-                                .map( x -> x.getKey()).collect(Collectors.toList());
+                                .map(Map.Entry::getKey).collect(Collectors.toList());
 
                 if(!failedRecords.isEmpty()) {
                     tableResult.setDataConsistent(false);
