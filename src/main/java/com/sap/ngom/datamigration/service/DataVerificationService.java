@@ -251,7 +251,10 @@ public class DataVerificationService {
             log.warn("MD5 check would be skipped as the table " + tableName + "doesn't contain primary key.");
         } else{
             for(String primaryKeyField:tablePrimaryKeyList){
-                tablePrimaryKeyBuilder.append(primaryKeyField).append(PK_DELIMITER);
+                //Special handling: remove tenant_id column when it is part of composite primary key.
+                if(!primaryKeyField.equals(tableInfo.getTenantColumnName())) {
+                    tablePrimaryKeyBuilder.append(primaryKeyField).append(PK_DELIMITER);
+                }
             }
             tableInfo.setPrimaryKey(tablePrimaryKeyBuilder.delete(tablePrimaryKeyBuilder.length()-7,tablePrimaryKeyBuilder.length()).toString());
         }
@@ -269,7 +272,7 @@ public class DataVerificationService {
         final JdbcTemplate hanaJdbcTemplate = new JdbcTemplate(targetDataSource);
         final JdbcTemplate postgresJdbcTemplate = new JdbcTemplate(sourceDataSource);
         final String whereStatement = dbSqlGenerator.generateWhereStatFindSpecificPKSql(tableInfo.getPrimaryKey().replace(PK_DELIMITER, COMMA_DELIMITER),needDoubleCheckRecordsMap.keySet());
-        final String selectAllSqlPostgres = dbSqlGenerator.generateSortedSelectAllSqlPostgres(tableInfo, postgresJdbcTemplate) + whereStatement ;
+        final String selectAllSqlPostgres = dbSqlGenerator.generateSortedSelectAllSqlPostgres(tableInfo, postgresJdbcTemplate) + whereStatement + " AND " + tableInfo.getTenantColumnName() + "=\'" + tableInfo.getTenant() + "\'";
         final String selectAllSqlHANA = dbSqlGenerator.generateSortedSelectAllSqlHANA(tableInfo,hanaJdbcTemplate) + whereStatement;
 
         Map<String,List<String>> getRelevantRecordsPostgres = getPKAndWholeFieldsFromDB(postgresJdbcTemplate, selectAllSqlPostgres);
