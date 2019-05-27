@@ -160,7 +160,8 @@ public class DataVerificationService {
     }
 
     private Map<String,Integer> retrieveTenantAndCountFromPostgres(TableInfo tableInfo, JdbcTemplate jdbcTemplate) {
-        String sqlForTenantAndCount = "select count(" + tableInfo.getTenantColumnName() + ") as tenant_count, " + tableInfo.getTenantColumnName() + " from " + tableInfo.getSourceTableName() + " where " + tableInfo.getTenantColumnName() + " is not null group by " + tableInfo.getTenantColumnName();
+        final String tenantColumnName = tableInfo.getTenantColumnName();
+        String sqlForTenantAndCount = "select count(" + tenantColumnName + ") as tenant_count, " + tenantColumnName + " from " + tableInfo.getSourceTableName() + " where " + tenantColumnName + " is not null group by " + tenantColumnName;
         return jdbcTemplate.query(sqlForTenantAndCount, resultSet -> {
             Map<String, Integer> map = new HashMap<>();
             while (resultSet.next()) {
