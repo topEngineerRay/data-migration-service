@@ -1,12 +1,11 @@
 package com.sap.ngom.datamigration.writer;
 
-import org.springframework.batch.item.ItemWriter;
 import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
+import org.springframework.jdbc.core.simple.SimpleJdbcInsertOperations;
 
 import javax.sql.DataSource;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 public class GenericItemWriter extends BasicItemWriter {
 
@@ -15,15 +14,16 @@ public class GenericItemWriter extends BasicItemWriter {
     }
 
     @Override
-    public void write(List<? extends Map<String,Object>> list) throws Exception {
+    public void write(List<? extends Map<String,Object>> list) {
         if(list.isEmpty()){
             return;
         }
         //get all columns
         String[] columns = getColumns(list);
-        SimpleJdbcInsert jdbcInsert = new SimpleJdbcInsert(dataSource)
+        SimpleJdbcInsertOperations jdbcInsert = new SimpleJdbcInsert(dataSource)
                 .usingColumns(columns)
-                .withTableName(buildHanaTableName(nameSpace,table));
+                .withTableName(buildHanaTableName(nameSpace,table))
+                .withoutTableColumnMetaDataAccess();
 
         jdbcInsert.executeBatch(list.toArray(new Map[0]));
     }
