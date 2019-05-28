@@ -1,13 +1,11 @@
 package com.sap.ngom.datamigration.writer;
 
-import org.springframework.batch.item.ItemWriter;
-import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.simple.SimpleJdbcInsert;
+import org.springframework.jdbc.core.simple.SimpleJdbcInsertOperations;
 
 import javax.sql.DataSource;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 public class SpecificRecordItemWriter extends BasicItemWriter {
 
@@ -20,11 +18,14 @@ public class SpecificRecordItemWriter extends BasicItemWriter {
         if(list.isEmpty()){
             return;
         }
+
         //get all columns
         String[] columns = getColumns(list);
-        SimpleJdbcInsert jdbcInsert = new SimpleJdbcInsert(dataSource)
+        SimpleJdbcInsertOperations jdbcInsert = new SimpleJdbcInsert(dataSource)
                 .usingColumns(columns)
-                .withTableName(buildHanaTableName(nameSpace,table));
+                .withTableName(buildHanaTableName(nameSpace,table))
+                .withoutTableColumnMetaDataAccess();
+
         //when there is a duplicated key exception, method execute and exectueBatch will throw different exception
         list.forEach(item ->{
                 jdbcInsert.execute(item);
