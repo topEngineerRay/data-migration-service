@@ -38,10 +38,9 @@ public class DataCleanupService {
         String targetTableName = dbConfigReader.getTargetTableName(tableName);
 
         List<String> tenantList = tenantHelper.getAllTenants(tableName);
-        List<String> subItems = tenantList.subList(0, tenantList.size() - 1);
         List<String> tableList = new ArrayList<String>();
         tableList.add(targetTableName);
-        ExecuteCleanup(subItems, tableList);
+        ExecuteCleanup(tenantList, tableList);
     }
 
     public void cleanData4AllTables() throws Exception{
@@ -58,7 +57,6 @@ public class DataCleanupService {
             tenantSet.addAll(tenantList);
         }
         List allTenants = new ArrayList(tenantSet);
-        allTenants.subList(0, allTenants.size() - 1);
         ExecuteCleanup(allTenants, targetTableList);
 
         log.info("[cleanup][all] ******* Cleanup done for all tables." );
