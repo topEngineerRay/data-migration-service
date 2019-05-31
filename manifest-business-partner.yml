@@ -8,5 +8,5 @@ applications:
     - postgresql-business-partner
     - managed-hana-business-partner-backup
   env:
-    VAULT_AUTH_TOKEN: "8676bb0b-33cd-85c1-c3b6-494a94397bbb"
-    SPRING_PROFILES_ACTIVE: "business-partner"
+    VAULT_AUTH_TOKEN: "${vault.generateToken()}"
+    SPRING_PROFILES_ACTIVE: "${context}"
