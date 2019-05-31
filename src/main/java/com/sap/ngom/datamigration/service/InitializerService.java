@@ -2,6 +2,7 @@ package com.sap.ngom.datamigration.service;
 
 import com.sap.ngom.datamigration.util.DBConfigReader;
 import com.sap.ngom.datamigration.util.InstanceManagerUtil;
+import com.sap.ngom.datamigration.util.TableNameValidator;
 import com.sap.ngom.datamigration.util.TenantHelper;
 import com.sap.ngom.util.hana.db.configuration.MultiTenantDataSourceHolder;
 import com.sap.ngom.util.hana.db.exceptions.HDIDeploymentException;
@@ -38,6 +39,9 @@ public class InitializerService {
     @Autowired
     HDIDeployerClient hdiDeployerClient;
 
+    @Autowired
+    private TableNameValidator tableNameValidator;
+
     private InstanceManagerUtil instanceManagerUtil = new InstanceManagerUtil();
 
     private Map<String, BlockingQueue<ManagedServiceInstance>> tenantAsyncResults = new ConcurrentHashMap<>();
@@ -45,6 +49,7 @@ public class InitializerService {
     private static final Integer THREADS_NUMBERS = 10;
 
     public void initialize4OneTable(String tableName) throws Exception{
+        tableNameValidator.tableNameValidation(tableName);
         List<String> tenantList = tenantHelper.getAllTenants(tableName);
 
         ExecuteInitilization(tenantList);
@@ -115,15 +120,14 @@ public class InitializerService {
         if(!tenantLatch.await(3000, TimeUnit.SECONDS)) {  // wait until latch counted down to 0
             log.error("[Initialization] Count down when time out: {}/{}", tenantLatch.getCount(), tenantList.size());
         }
-        Long endTimestamp = System.currentTimeMillis();
-
-        log.info("[Initialization] Initialize all tenants {}", (endTimestamp - startTimestamp));
-        executorService.shutdown();
+        executorService.shutdownNow();
 
         if(hasError.get() || tenantLatch.getCount() != 0) {
             throw new HDIDeploymentInitializerException("[Initialization] error occurs, check log for details.");
         }
 
+        Long endTimestamp = System.currentTimeMillis();
+        log.info("[Initialization] Initialize all tenants, takes time {}", (endTimestamp - startTimestamp));
     }
 
     public void initialize4AllTables() throws Exception{
