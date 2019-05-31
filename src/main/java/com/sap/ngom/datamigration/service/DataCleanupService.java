@@ -69,35 +69,6 @@ public class DataCleanupService {
         CountDownLatch tenantLatch = new CountDownLatch(tenantList.size());
         final AtomicBoolean hasError = new AtomicBoolean(false);
 
-//        Set<Callable<String>> callables = new HashSet<Callable<String>>();
-//        for (String tenant : tenantList) {
-//            callables.add(new Callable<String>() {
-//                public String call() throws Exception {
-//                    //change data source
-//                    TenantThreadLocalHolder.setTenant(tenant);
-//                    JdbcTemplate hanaJdbcTemplate = new JdbcTemplate(targetDataSource);
-//                    for (String tableName : tableList) {
-//                        try {
-//                            log.info("Execute SQL for tenant " + tenant + ": TRUNCATE TABLE " + tableName + '.');
-//                            hanaJdbcTemplate.execute("TRUNCATE TABLE " + "\"" + tableName + "\"");
-//                        } catch (DataAccessException e) {
-//                            hasError.set(true);
-//                            log.error("[cleanup] ++++ Exception occurs when execute SQL DELETE for tenant: " + tenant + " in table: " + tableName + ": " + e.getMessage());
-//                        }
-//                    }
-//                    try {
-//                        hanaJdbcTemplate.getDataSource().getConnection().close();
-//                    } catch (SQLException e) {
-//                        e.printStackTrace();
-//                    }
-//                    tenantLatch.countDown();
-//                    log.info("[cleanup] Cleanup done for tenant: " + tenant + ". " + tenantLatch.getCount() + "/" + tenantList.size());
-//
-//                    return tenant;
-//                }
-//            });
-//        }
-//        List<Future<String>> futures = executorService.invokeAll(callables);
         for (String tenant : tenantList) {
             executorService.submit(() -> {
                 //change data source
