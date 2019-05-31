@@ -11,7 +11,7 @@ public class TableNameValidator {
 
     public void tableNameValidation(String tableName) {
         if (!dbConfigReader.getSourceTableNames().contains(tableName)) {
-            throw new SourceTableNotDefinedException("There is no table:" + tableName + " in the database");
+            throw new SourceTableNotDefinedException("The given source table name (" + tableName + ") is not defined in properties.");
         }
     }
 }
