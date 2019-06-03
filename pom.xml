@@ -50,7 +50,7 @@
         <dependency>
             <groupId>com.sap.ngom</groupId>
             <artifactId>util-hana-db</artifactId>
-            <version>1.0.0-20190225-033239-fdfc082fc1febb4026b91b68286eeead017e64e8</version>
+            <version>2.0.0-20190530-074425-ac992eade843fbf5527b9de350b0dd535e2a35ee</version>
         </dependency>
         <dependency>
             <groupId>com.sap.hcp.cf.logging</groupId>
