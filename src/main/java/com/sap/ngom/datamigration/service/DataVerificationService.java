@@ -273,12 +273,14 @@ public class DataVerificationService {
         tableInfo.setTargetTableName(dbConfigReader.getTargetTableName(tableName));
         tableInfo.setTenantColumnName(tenantHelper.determineTenant(tableName));
         List<String> tablePrimaryKeyList = dbSqlGenerator.getPrimaryKeysByTable(tableName, jdbcTemplate);
+
+        //Special handling: remove tenant_id column when it is part of composite primary key.
+        tablePrimaryKeyList.remove(tableInfo.getTenantColumnName());
+
         if(tablePrimaryKeyList.isEmpty()) {
             tableInfo.setPrimaryKey("");
             log.warn("MD5 check would be skipped as the table " + tableName + "doesn't contain primary key.");
         } else{
-            //Special handling: remove tenant_id column when it is part of composite primary key.
-            tablePrimaryKeyList.remove(tableInfo.getTenantColumnName());
             tableInfo.setPrimaryKey(concatPKWithDelimiter(tablePrimaryKeyList,PK_DELIMITER));
         }
         return tableInfo;
