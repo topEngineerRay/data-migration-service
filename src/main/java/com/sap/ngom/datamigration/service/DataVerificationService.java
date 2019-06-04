@@ -279,7 +279,7 @@ public class DataVerificationService {
 
         if(tablePrimaryKeyList.isEmpty()) {
             tableInfo.setPrimaryKey("");
-            log.warn("MD5 check would be skipped as the table " + tableName + "doesn't contain primary key.");
+            log.warn("MD5 check would be skipped as the table " + tableName + " doesn't contain primary key.");
         } else{
             tableInfo.setPrimaryKey(concatPKWithDelimiter(tablePrimaryKeyList,PK_DELIMITER));
         }
