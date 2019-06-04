@@ -1,0 +1,12 @@
+---
+applications:
+- name: datamigration-rater
+  memory: 2G
+  instances: 1
+  path: target/data-migration-service-1.0-SNAPSHOT.jar
+  services:
+    - postgresql-rater
+    - managed-hana-subscription
+  env:
+    VAULT_AUTH_TOKEN: "e23a55be-cca4-31f2-5f8a-f7fa40cae485"
+    SPRING_PROFILES_ACTIVE: "rater"

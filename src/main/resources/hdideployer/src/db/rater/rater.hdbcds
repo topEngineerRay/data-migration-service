@@ -1,0 +1,642 @@
+namespace "com"."sap"."ngom"."db";
+
+context Rater {
+
+    entity rate_plan {
+
+        key ID                      : String(255);
+
+            SHORT_DESCRIPTION       : String(255);
+
+            VERSION                 : Integer;
+
+            PERIODICITY             : String(255);
+
+            CURRENCY                : String(3);
+
+            CURRENCY_PARAMETER       : String(255);
+
+            CREATION_DATE            : UTCTimestamp;
+
+            OPTLOCK                  : Integer;
+
+            NUMBER                   : Integer64;
+
+    };
+
+
+    entity rate_plan_activation {
+
+        key ID                : String(255);
+
+            SUBSCRIPTION_REF           : String(255);
+
+            SUBSCRIPTION_ITEM_REF                : String(255);
+
+            RATE_PLAN_ID              : String(255);
+
+            USER_TECHNICAL_ID            : String(255);
+
+            VALIDITY_START_DATE           : UTCTimestamp;
+
+            VALIDITY_END_DATE             : UTCTimestamp;
+
+            RATING_TIMEZONE           : String(40);
+
+            CUSTOMER_REF           : String(255);
+
+            NUMBER_OF_WAIVER_PERIODS            : Integer64;
+
+            SUBSCRIPTION_START_DATE           : UTCTimestamp;
+
+            MIN_DUE_DATE           : UTCTimestamp;
+
+            PERIODICITY_REFERENCE_DATE             : UTCTimestamp;
+
+            IS_WITHDRAWN                : hana.TINYINT;
+
+            SUBSCRIPTION_END_DATE          : UTCTimestamp;
+
+            PRICING_DATE   : UTCTimestamp;
+
+    };
+
+
+
+    entity rate_plan_activation_parameters {
+
+         RATE_PLAN_ACTIVATION_ID                : String(255);
+
+            CODE           : String(255);
+
+            BPID                : String(255);
+
+            VALUE              : String(255);
+
+            CATEGORY            : String(255);
+
+    };
+
+
+
+    entity rate_plan_activation_user_technical_id {
+
+            key RATE_PLAN_ACTIVATION_ID           : String(255);
+
+                USER_TECHNICAL_ID                 : String(255);
+
+    };
+
+
+
+    entity rate_plan_bundle_activation {
+
+            key ID            : String(40);
+
+                LAST_RATING_JOB_EXECUTION_DATE       : UTCTimestamp;
+
+                NEXT_ACTIVATION_DATE    : LocalDate;
+
+                TIMEZONE        : String(40);
+    };
+
+
+
+    entity rate_plan_tag {
+
+            key RATE_PLAN_ID      : String(255);
+
+            key TAG_NAME      : String(255);
+
+    };
+
+    entity rate_plan_template_tag {
+
+            key RATE_PLAN_TEMPLATE_ID      : String(255);
+
+            key TAG_NAME      : String(255);
+
+    };
+
+
+    entity rated_item {
+
+        key ID                : String(255);
+
+            CURRENCY           : String(3);
+
+            AMOUNT                : Decimal(27,6);
+
+            SUBSCRIPTION_REF              : String(255);
+
+            SUBSCRIPTION_ITEM_REF            : String(255);
+
+            CONSUMED_QUANTITY           : Decimal(27,6);
+
+            CREATION_DATE             : UTCTimestamp;
+
+            INCLUDED_QUANTITY           : Decimal(21,0);
+
+            NUMBER_OF_BLOCKS           : Decimal(21,0);
+
+            METRIC_ID            : String(255);
+
+            RATE_ID           : String(255);
+
+            RATE_PLAN_ID           : String(255);
+
+            BLOCK_SIZE           : Decimal(21,0);
+
+            PRICE_PER_BLOCK_CURRENCY             : String(3);
+
+            PRICE_PER_BLOCK                : Decimal(27,6);
+
+            RATING_PERIOD_START_DATE          : UTCTimestamp;
+
+            RATING_PERIOD_END_DATE   : UTCTimestamp;
+
+            RATE_PLAN_ACTIVATION_ID :  String(255);
+
+            USER_TECHNICAL_ID :  String(255);
+
+            CUSTOMER_REF :  String(255);
+
+            TIER_FROM : Decimal(27,6);
+
+            TIER_TO : Decimal(27,6);
+
+            DUE_DATE : UTCTimestamp;
+
+            TRIGGERING_EVENT_DATE : UTCTimestamp;
+
+            MINIMUM_QUANTITY             : hana.TINYINT;
+
+            REVERTED                : hana.TINYINT;
+
+            REVERTED_ITEM_ID          : String(255);
+
+            SUBSCRIPTION_START_DATE   : UTCTimestamp;
+
+            SUBSCRIPTION_END_DATE :  UTCTimestamp;
+
+            CHANGE_DATE :  UTCTimestamp;
+
+            PERIODICITY : String(255);
+
+            PERIODICITY_REFERENCE_DATE : UTCTimestamp;
+
+            TIMEZONE : String(255);
+    };
+
+
+    entity rated_item_parameters {
+
+            RATED_ITEM_ID                : String(255);
+
+            CODE              : String(255);
+
+            VALUE            : String(255);
+
+    };
+
+    entity schema_version {
+
+            key INSTALLED_RANK                  : Integer;
+
+                VERSION           : String(50);
+
+                DESCRIPTION               : String(200);
+
+                TYPE           : String(20);
+
+                SCRIPT              : String(1000);
+
+                CHECKSUM         : Integer;
+
+                INSTALLED_ON     : UTCTimestamp;
+
+                EXECUTION_TIME           : Integer;
+
+                SUCCESS  : hana.TINYINT;
+
+    };
+
+
+
+    entity setup_fee {
+
+            key ID                  : String(255);
+
+                RATE_PLAN_ID           : String(255);
+
+                AMOUNT          : Decimal(27,6);
+
+                CURRENCY          : String(3);
+
+                METRIC_ID    : String(255);
+
+                AMOUNT_PARAMETER        : String(255);
+
+                CUSTOM_AMOUNT_ID        : String(255);
+
+    };
+
+    entity template_number_sequence {
+            TEMPLATE_NUMBER: Integer64;
+    };
+
+    entity tier_rate {
+
+        key ID                : String(255);
+
+            RATE_PLAN_ID           : String(255);
+
+            METRIC_ID                : String(255);
+
+            BLOCK_SIZE              : Decimal(21,0);
+
+            RATE_PLAN_TENANT_ID            : String(36);
+
+            MINIMUM_BLOCKS           : Decimal(21,0);
+
+            BLOCK_SIZE_PARAMETER             : String(255);
+
+            MINIMUM_BLOCKS_PARAMETER           : String(255);
+
+            CUSTOM_AMOUNT_ID           : String(255);
+
+    };
+
+    entity tier_rate_tier {
+
+            TIER_RATE_ID                : String(255);
+
+            BOUND           : Decimal(27,6);
+
+            UNIT_PRICE                : Decimal(27,6);
+
+            UNIT_PRICE_CURRENCY              : String(3);
+
+            PRICE_PER_BLOCK_CURRENCY            : String(3);
+
+            PRICE_PER_BLOCK           : Decimal(27,6);
+
+            BOUND_PARAMETER             : String(255);
+
+            PRICE_PER_BLOCK_PARAMETER           : String(255);
+
+            UNIT_PRICE_PARAMETER           : String(255);
+    };
+
+    entity usage_record {
+
+        key ID                : String(255);
+
+            METRIC_ID           : String(255);
+
+            QUANTITY                : Decimal(27,6);
+
+            USER_TECHNICAL_ID              : String(255);
+
+            PERIOD_START            : UTCTimestamp;
+
+            PERIOD_END           : UTCTimestamp;
+
+            CREATION_DATE             : UTCTimestamp;
+
+            MODIFICATION_DATE           : UTCTimestamp;
+    };
+
+
+    entity all_unit_volume_rate {
+
+        key ID                : String(255);
+
+            RATE_PLAN_ID           : String(255);
+
+            METRIC_ID                : String(255);
+
+            RATE_PLAN_TENANT_ID              : String(36);
+
+            CUSTOM_AMOUNT_ID            : String(255);
+
+            BLOCK_SIZE           : Decimal(21,0);
+
+            BLOCK_SIZE_PARAMETER             : String(255);
+
+            MINIMUM_BLOCKS           : Decimal(21,0);
+
+            MINIMUM_BLOCKS_PARAMETER           : String(255);
+
+    };
+
+
+    entity all_unit_volume_tier {
+
+            ALL_UNIT_VOLUME_RATE_ID                : String(255);
+
+            BOUND           : Decimal(27,6);
+
+            FIXED_PRICE                : Decimal(27,6);
+
+            FIXED_PRICE_CURRENCY              : String(3);
+
+            UNIT_PRICE            :  Decimal(27,6);
+
+            UNIT_PRICE_CURRENCY           : String(3);
+
+            BOUND_PARAMETER             : String(255);
+
+            FIXED_PRICE_PARAMETER           : String(255);
+
+            UNIT_PRICE_PARAMETER           : String(255);
+
+            PRICE_PER_BLOCK            : Decimal(27,6);
+
+            PRICE_PER_BLOCK_CURRENCY           : String(3);
+
+            PRICE_PER_BLOCK_PARAMETER           : String(255);
+
+    };
+
+    entity bill_policy {
+
+            TYPE : String(40);
+
+    };
+
+    entity block_rate {
+
+        key ID                : String(255);
+
+            RATE_PLAN_ID           : String(255);
+
+            INCLUDED_QUANTITY                : Decimal(21,0);
+
+            BLOCK_SIZE              : Decimal(21,0);
+
+            PRICE_PER_BLOCK_CURRENCY            : String(3);
+
+            PRICE_PER_BLOCK           : Decimal(27,6);
+
+            METRIC_ID             : String(255);
+
+            PRICE_PER_BLOCK_PARAMETER           : String(255);
+
+            INCLUDED_QUANTITY_PARAMETER            : String(255);
+
+            BLOCK_SIZE_PARAMETER           : String(255);
+
+            CUSTOM_AMOUNT_ID           : String(255);
+    };
+
+
+    entity charged_quantity_slice {
+
+            RATED_ITEM_ID                : String(255);
+
+            SLICE_INDEX           : Integer;
+
+            QUANTITY                : Decimal(27,6);
+
+            MAX_QUANTITY              : Decimal(21,0);
+
+            BLOCK_SIZE            : Decimal(21,0);
+
+            PRICE_PER_BLOCK_CURRENCY           : String(3);
+
+            PRICE_PER_BLOCK             : Decimal(27,6);
+
+            FIXED_PRICE_CURRENCY           : String(3);
+
+            FIXED_PRICE           : Decimal(27,6);
+
+    };
+
+
+    entity consumption_item {
+
+        key ID                : String(255);
+
+            METRIC_ID           : String(255);
+
+            QUANTITY_VALUE                : Decimal(27,6);
+
+            USER_TECHNICAL_ID              : String(255);
+
+            CONSUMPTION_PERIOD_START            : UTCTimestamp;
+
+            CONSUMPTION_PERIOD_END           : UTCTimestamp;
+
+            CREATION_DATE             : UTCTimestamp;
+
+            TIME_ZONE           : String(40);
+
+    };
+
+    entity custom_amount {
+
+            RATED_ITEM_ID                : String(255);
+
+            CODE           : String(255);
+
+            AMOUNT                : Decimal(27,6);
+
+            CURRENCY              : String(3);
+
+    };
+
+    entity fixed_rate {
+
+        key ID                : String(255);
+
+            RATE_PLAN_ID           : String(255);
+
+            CURRENCY                : String(3);
+
+            AMOUNT              : Decimal(27,6);
+
+            METRIC_ID            : String(255);
+
+            BILLED_IN_ADVANCE           : Integer;
+
+            PRORATABLE             : Integer;
+
+            AMOUNT_PARAMETER           : String(255);
+
+            BILLED_IN_ADVANCE_PARAMETER            : String(255);
+
+            PRORATABLE_PARAMETER           : String(255);
+
+            CUSTOM_AMOUNT_ID           : String(255);
+
+    };
+
+    entity new_rate_plan {
+
+        key ID                : String(255);
+
+            CODE           : String(64);
+
+            DESCRIPTION              : String(255);
+
+            RATE_PLAN_TEMPLATE_ID            : String(255);
+
+            VERSION           : Integer;
+
+            CREATION_DATE             : UTCTimestamp;
+
+            V1_RATE_PLAN           : hana.TINYINT;
+
+            EXTERNAL_ID            : String(255);
+
+            EXTERNAL_SYSTEM_ID           : String(255);
+    };
+
+    entity new_rate_plan_snapshot {
+
+        key ID                : String(255);
+
+            RATE_PLAN_ID           : String(255);
+
+            RATE_PLAN_TENANT_ID                : String(36);
+
+            EFFECTIVE_DATE              : UTCTimestamp;
+
+    };
+
+    entity new_rate_plan_snapshot_parameter {
+
+        key ID                : String(255);
+
+            CODE           : String(64);
+
+            VALUE              : String(255);
+
+            SNAPSHOT_ID            : String(255);
+    };
+
+
+    entity parameter {
+
+        key ID                : String(255);
+
+            NAME           : String(255);
+
+            DESCRIPTION              : String(255);
+
+            TYPE            : String(255);
+
+            RATE_PLAN_ID            : String(255);
+
+    };
+
+
+    entity percentage_rate {
+
+        key ID                : String(255);
+
+            RATE_PLAN_ID           : String(255);
+
+            RATIO                : Decimal(27,6);
+
+            RATIO_FORMAT              : Integer;
+
+            RATIO_PARAMETER            : String(255);
+
+            PRICE_PER_UNIT_VALUE           : Decimal(27,6);
+
+            PRICE_PER_UNIT_PARAMETER             : String(255);
+
+            METRIC_ID           : String(255);
+
+            BILLED_IN_ADVANCE_VALUE           : hana.TINYINT;
+
+            BILLED_IN_ADVANCE_PARAMETER            : String(255);
+
+            CUSTOM_AMOUNT_ID           : String(255);
+
+    };
+
+    entity qrtz_cron_triggers {
+
+        key SCHED_NAME                : String(120);
+
+        key TRIGGER_NAME           : String(200);
+
+        key TRIGGER_GROUP                : String(200);
+
+            CRON_EXPRESSION            : String(120);
+
+            TIME_ZONE_ID             : String(80);
+
+    };
+
+    entity qrtz_job_details {
+
+        key SCHED_NAME                : String(120);
+
+        key JOB_NAME                : String(200);
+
+        key JOB_GROUP           : String(200);
+
+            DESCRIPTION            : String(250);
+
+            JOB_CLASS_NAME             : String(250);
+
+            IS_DURABLE               :  hana.TINYINT;
+
+            IS_NONCONCURRENT               :  hana.TINYINT;
+
+            IS_UPDATE_DATA               :  hana.TINYINT;
+
+            REQUESTS_RECOVERY               :  hana.TINYINT;
+
+            JOB_DATA                       : LargeString;
+
+    };
+
+    entity qrtz_locks {
+
+        key SCHED_NAME                : String(120);
+
+        key LOCK_NAME           : String(40);
+    };
+
+
+    entity qrtz_triggers {
+
+        key SCHED_NAME                : String(120);
+
+        key TRIGGER_NAME                : String(200);
+
+        key TRIGGER_GROUP           : String(200);
+
+            JOB_NAME            : String(200);
+
+            JOB_GROUP             : String(200);
+
+            DESCRIPTION             : String(250);
+
+            NEXT_FIRE_TIME               :  Integer64;
+
+            PREV_FIRE_TIME               :  Integer64;
+
+            PRIORITY               :  Integer;
+
+            TRIGGER_STATE               :  String(16);
+
+            TRIGGER_TYPE                       : String(8);
+
+            START_TIME               :  Integer64;
+
+            END_TIME               :  Integer64;
+
+            CALENDAR_NAME            : String(200);
+
+            MISFIRE_INSTR              : hana.SMALLINT;
+
+            JOB_DATA                     : LargeString;
+
+    };
+}
