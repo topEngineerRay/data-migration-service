@@ -297,7 +297,9 @@ context Subscription {
 
                 CANCELEDAT                                  :UTCTimestamp;
 
-                CUTOVERDATE                                 :UTCTimestamp;             
+                CUTOVERDATE                                 :UTCTimestamp;
+
+                BILLINGCUTOVERDATE                           :UTCTimestamp;
 
     };
 
