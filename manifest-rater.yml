@@ -6,7 +6,7 @@ applications:
   path: target/data-migration-service-1.0-SNAPSHOT.jar
   services:
     - postgresql-rater
-    - managed-hana-subscription
+    - managed-hana-rater
   env:
-    VAULT_AUTH_TOKEN: "e23a55be-cca4-31f2-5f8a-f7fa40cae485"
+    VAULT_AUTH_TOKEN: ""
     SPRING_PROFILES_ACTIVE: "rater"
