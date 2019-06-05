@@ -47,6 +47,8 @@ context Rater {
 
             NUMBER_OF_WAIVER_PERIODS            : Integer64;
 
+            METRIC_ID             : String(255);
+
             SUBSCRIPTION_START_DATE           : UTCTimestamp;
 
             MIN_DUE_DATE           : UTCTimestamp;
@@ -81,7 +83,7 @@ context Rater {
 
     entity rate_plan_activation_user_technical_id {
 
-            key RATE_PLAN_ACTIVATION_ID           : String(255);
+                RATE_PLAN_ACTIVATION_ID           : String(255);
 
                 USER_TECHNICAL_ID                 : String(255);
 
@@ -169,7 +171,11 @@ context Rater {
 
             TRIGGERING_EVENT_DATE : UTCTimestamp;
 
-            MINIMUM_QUANTITY             : hana.TINYINT;
+            LAST_MODIFICATION_DATE : UTCTimestamp;
+
+            MINIMUM_QUANTITY             : Decimal(21,0);
+
+            REVERSIBLE              : hana.TINYINT;
 
             REVERTED                : hana.TINYINT;
 
