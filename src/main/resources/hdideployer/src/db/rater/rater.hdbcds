@@ -199,28 +199,6 @@ context Rater {
 
     };
 
-    entity schema_version {
-
-            key INSTALLED_RANK                  : Integer;
-
-                VERSION           : String(50);
-
-                DESCRIPTION               : String(200);
-
-                TYPE           : String(20);
-
-                SCRIPT              : String(1000);
-
-                CHECKSUM         : Integer;
-
-                INSTALLED_ON     : UTCTimestamp;
-
-                EXECUTION_TIME           : Integer;
-
-                SUCCESS  : hana.TINYINT;
-
-    };
-
 
 
     entity setup_fee {
