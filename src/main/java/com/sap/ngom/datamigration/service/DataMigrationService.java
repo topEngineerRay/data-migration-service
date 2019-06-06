@@ -47,8 +47,8 @@ import java.util.*;
 public class DataMigrationService {
     private static final Logger log = LoggerFactory.getLogger(DataMigrationService.class);
 
-    private static final int SKIP_LIMIT = 10;
-    public static final int CHUNK_SIZE = 500;
+    private static final int SKIP_LIMIT = 20;
+    public static final int CHUNK_SIZE = 1000;
 
     @Autowired
     private SimpleJobLauncher jobLauncher;
@@ -155,8 +155,8 @@ public class DataMigrationService {
                 .<Map<String, Object>, Map<String, Object>>chunk(CHUNK_SIZE)
                 .reader(buildItemReader(dataSource, table, tenant))
                 .processor(new CustomItemProcessor())
-                .writer(buildItemWriter(detinationDataSource, table, targetNameSpace)).faultTolerant()
-                .skip(DuplicateKeyException.class).skipLimit(Integer.MAX_VALUE)
+                .writer(buildItemWriter(detinationDataSource, table, targetNameSpace))
+                .faultTolerant().skip(DuplicateKeyException.class).skipLimit(SKIP_LIMIT)
                 .build();
 
         return tenantSpecificStep;
@@ -198,7 +198,7 @@ public class DataMigrationService {
 
         JdbcPagingItemReader<Map<String, Object>> itemReader = new JdbcPagingItemReader<>();
         itemReader.setDataSource(dataSource);
-        itemReader.setPageSize(500);
+        itemReader.setPageSize(1000);
         itemReader.setQueryProvider(generateSqlPagingQueryProvider(tableName, tenantName, tenant, sortKeysString));
         itemReader.setRowMapper(new ColumnMapRowMapper());
         try {
