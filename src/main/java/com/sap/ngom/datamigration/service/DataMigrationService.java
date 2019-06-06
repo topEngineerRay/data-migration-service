@@ -33,10 +33,12 @@ import org.springframework.batch.item.database.support.PostgresPagingQueryProvid
 import org.springframework.batch.item.support.AbstractItemStreamItemReader;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.context.annotation.Bean;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.ColumnMapRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
@@ -152,6 +154,7 @@ public class DataMigrationService {
 
         Step tenantSpecificStep = stepBuilderFactory.get(table + "_" + tenant + "_" + "MigrationStep")
                 .listener(new BPStepListener(tenant))
+                .transactionManager(new DataSourceTransactionManager(detinationDataSource))
                 .<Map<String, Object>, Map<String, Object>>chunk(CHUNK_SIZE)
                 .reader(buildItemReader(dataSource, table, tenant))
                 .processor(new CustomItemProcessor())
