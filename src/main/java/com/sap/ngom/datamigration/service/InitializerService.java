@@ -2,19 +2,24 @@ package com.sap.ngom.datamigration.service;
 
 import com.sap.ngom.datamigration.util.DBConfigReader;
 import com.sap.ngom.datamigration.util.InstanceManagerUtil;
+import com.sap.ngom.datamigration.util.TableNameValidator;
 import com.sap.ngom.datamigration.util.TenantHelper;
 import com.sap.ngom.util.hana.db.configuration.MultiTenantDataSourceHolder;
 import com.sap.ngom.util.hana.db.exceptions.HDIDeploymentException;
 import com.sap.ngom.util.hana.db.exceptions.HDIDeploymentInitializerException;
 import com.sap.ngom.util.hana.db.exceptions.HanaDataSourceDeterminationException;
 import com.sap.ngom.util.hana.db.utils.HDIDeployerClient;
-import com.sap.xsa.core.instancemanager.client.*;
+import com.sap.xsa.core.instancemanager.client.ImClientException;
+import com.sap.xsa.core.instancemanager.client.InstanceCreationOptions;
+import com.sap.xsa.core.instancemanager.client.InstanceManagerClient;
+import com.sap.xsa.core.instancemanager.client.ManagedServiceInstance;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import javax.sql.DataSource;
+import java.net.URLEncoder;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -38,6 +43,9 @@ public class InitializerService {
     @Autowired
     HDIDeployerClient hdiDeployerClient;
 
+    @Autowired
+    private TableNameValidator tableNameValidator;
+
     private InstanceManagerUtil instanceManagerUtil = new InstanceManagerUtil();
 
     private Map<String, BlockingQueue<ManagedServiceInstance>> tenantAsyncResults = new ConcurrentHashMap<>();
@@ -45,6 +53,7 @@ public class InitializerService {
     private static final Integer THREADS_NUMBERS = 10;
 
     public void initialize4OneTable(String tableName) throws Exception{
+        tableNameValidator.tableNameValidation(tableName);
         List<String> tenantList = tenantHelper.getAllTenants(tableName);
 
         ExecuteInitilization(tenantList);
@@ -60,26 +69,27 @@ public class InitializerService {
         Long startTimestamp = System.currentTimeMillis();
 
         for (String tenantId : tenantList) {
+            String finalTenantId = URLEncoder.encode(tenantId, "UTF-8");
             executorService.submit(() -> {
-                DataSource dataSource = multiTenantDataSourceHolder.getDataSource(tenantId);
+                DataSource dataSource = multiTenantDataSourceHolder.getDataSource(finalTenantId);
 
                 if (dataSource == null) {
                     ManagedServiceInstance managedServiceInstance = null;
 
                     try {
-                        managedServiceInstance = imClient.getManagedInstance(tenantId);
+                        managedServiceInstance = imClient.getManagedInstance(finalTenantId);
                     } catch (ImClientException e) {
                         e.printStackTrace();
                     }
                     if (managedServiceInstance == null) { //new tenant to be created
                         final BlockingQueue<ManagedServiceInstance> asyncResult = new SynchronousQueue<>();
-                        tenantAsyncResults.put(tenantId, asyncResult);
+                        tenantAsyncResults.put(finalTenantId, asyncResult);
 
                         Map<String, Object> provisioningParameters = new HashMap<>();
                         InstanceCreationOptions instanceCreationOptions = new InstanceCreationOptions();
                         instanceCreationOptions = instanceCreationOptions.withProvisioningParameters(provisioningParameters);
                         try {
-                            imClient.createManagedInstance(tenantId, this.creationManagedInstanceCallback, instanceCreationOptions);
+                            imClient.createManagedInstance(finalTenantId, this.creationManagedInstanceCallback, instanceCreationOptions);
                         } catch (ImClientException e) {
                             throw new HanaDataSourceDeterminationException("[Initialization] Create managed instance failed", e);
                         }
@@ -93,14 +103,14 @@ public class InitializerService {
                         }
                     }
                     if (managedServiceInstance == null) {
-                        throw new HanaDataSourceDeterminationException("[Initialization] Create managed instance failed for tenant: " + tenantId);
+                        throw new HanaDataSourceDeterminationException("[Initialization] Create managed instance failed for tenant: " + finalTenantId);
                     }
                     // call HDI deployer
                     try {
                         hdiDeployerClient.executeHDIDeployment(managedServiceInstance);
                         dataSource = hdiDeployerClient.createDataSource(managedServiceInstance);
-                        if(managedServiceInstance.getId().equals(tenantId)) {
-                            multiTenantDataSourceHolder.storeDataSource(tenantId, dataSource);
+                        if(managedServiceInstance.getId().equals(finalTenantId)) {
+                            multiTenantDataSourceHolder.storeDataSource(finalTenantId, dataSource);
                         }
                     } catch (HDIDeploymentException e) {
                         hasError.set(true);
@@ -115,15 +125,14 @@ public class InitializerService {
         if(!tenantLatch.await(3000, TimeUnit.SECONDS)) {  // wait until latch counted down to 0
             log.error("[Initialization] Count down when time out: {}/{}", tenantLatch.getCount(), tenantList.size());
         }
-        Long endTimestamp = System.currentTimeMillis();
-
-        log.info("[Initialization] Initialize all tenants {}", (endTimestamp - startTimestamp));
-        executorService.shutdown();
+        executorService.shutdownNow();
 
         if(hasError.get() || tenantLatch.getCount() != 0) {
             throw new HDIDeploymentInitializerException("[Initialization] error occurs, check log for details.");
         }
 
+        Long endTimestamp = System.currentTimeMillis();
+        log.info("[Initialization] Initialize all tenants, takes time {}", (endTimestamp - startTimestamp));
     }
 
     public void initialize4AllTables() throws Exception{

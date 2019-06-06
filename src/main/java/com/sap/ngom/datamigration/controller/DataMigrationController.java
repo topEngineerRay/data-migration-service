@@ -90,20 +90,32 @@ public class DataMigrationController {
     }
     @PostMapping("/data/cleanup/{tableName}")
     public ResponseEntity<ResponseMessage> dataCleanup4OneTable(@PathVariable final String tableName) {
-        dataCleanupService.cleanData4OneTable(tableName);
-
         ResponseMessage responseMessage = new ResponseMessage();
         responseMessage.setStatus(Status.SUCCESS);
         responseMessage.setMessage("Data cleanup successfully done for the table: " + tableName + ".");
+        try {
+            dataCleanupService.cleanData4OneTable(tableName);
+        } catch (Exception e) {
+            e.printStackTrace();
+            responseMessage.setStatus(Status.FAILURE);
+            responseMessage.setMessage(e.getMessage());
+        }
+
         return ResponseEntity.ok().body(responseMessage);
     }
 
     @PostMapping("/data/cleanup")
     public ResponseEntity<ResponseMessage> dataCleanup4AllTables() {
-        dataCleanupService.cleanData4AllTables();
         ResponseMessage responseMessage = new ResponseMessage();
         responseMessage.setStatus(Status.SUCCESS);
         responseMessage.setMessage("Data cleanup successfully done for all the tables.");
+        try {
+            dataCleanupService.cleanData4AllTables();
+        } catch (Exception e) {
+            e.printStackTrace();
+            responseMessage.setStatus(Status.FAILURE);
+            responseMessage.setMessage(e.getMessage());
+        }
         return ResponseEntity.ok().body(responseMessage);
     }
 
@@ -129,23 +141,33 @@ public class DataMigrationController {
     }
 
     @PostMapping("/initialization")
-    public ResponseEntity<Void> tableInitializeAll() {
+    public ResponseEntity<ResponseMessage> tableInitializeAll() {
+        ResponseMessage responseMessage = new ResponseMessage();
+        responseMessage.setStatus(Status.SUCCESS);
+        responseMessage.setMessage("Initialize successfully done for all the tables.");
         try {
             initializerService.initialize4AllTables();
         } catch (Exception e) {
             e.printStackTrace();
+            responseMessage.setStatus(Status.FAILURE);
+            responseMessage.setMessage(e.getMessage());
         }
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok().body(responseMessage);
     }
 
     @PostMapping("/initialization/{tableName}")
-    public ResponseEntity<Void> tableInitializeOne(@PathVariable("tableName")final String tableName) {
+    public ResponseEntity<ResponseMessage> tableInitializeOne(@PathVariable("tableName")final String tableName) {
+        ResponseMessage responseMessage = new ResponseMessage();
+        responseMessage.setStatus(Status.SUCCESS);
+        responseMessage.setMessage("Initialize successfully done for the table: " + tableName + ".");
         try {
             initializerService.initialize4OneTable(tableName);
         } catch (Exception e) {
             e.printStackTrace();
+            responseMessage.setStatus(Status.FAILURE);
+            responseMessage.setMessage(e.getMessage());
         }
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok().body(responseMessage);
     }
 
 }
