@@ -170,8 +170,8 @@ public class DataMigrationService {
 
         Step tenantSpecificStep = stepBuilderFactory.get(table + "_" + primaryKeyValue + "_" + "MigrationStep")
                 .listener(new BPStepListener(tenant))
-                .<Map<String, Object>, Map<String, Object>>chunk(CHUNK_SIZE).faultTolerant()
-                .skip(DuplicateKeyException.class).skipLimit(Integer.MAX_VALUE)
+                .transactionManager(new DataSourceTransactionManager(detinationDataSource))
+                .<Map<String, Object>, Map<String, Object>>chunk(CHUNK_SIZE)
                 .reader(buildOneRecordItemReader(dataSource, table, primaryKeyName, primaryKeyValue))
                 .processor(new CustomItemProcessor())
                 .writer(new SpecificRecordItemWriter(detinationDataSource, table, targetNameSpace)).faultTolerant()
