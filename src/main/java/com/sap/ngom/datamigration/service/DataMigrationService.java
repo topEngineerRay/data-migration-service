@@ -49,7 +49,7 @@ import java.util.*;
 public class DataMigrationService {
     private static final Logger log = LoggerFactory.getLogger(DataMigrationService.class);
 
-    private static final int SKIP_LIMIT = 20;
+    private static final int SKIP_LIMIT = 10;
     public static final int CHUNK_SIZE = 1000;
 
     @Autowired
