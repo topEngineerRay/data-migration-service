@@ -37,6 +37,7 @@ import org.springframework.core.task.TaskExecutor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.ColumnMapRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.jdbc.datasource.DataSourceTransactionManager;
 import org.springframework.stereotype.Service;
 
 import javax.annotation.PostConstruct;
@@ -48,7 +49,7 @@ public class DataMigrationService {
     private static final Logger log = LoggerFactory.getLogger(DataMigrationService.class);
 
     private static final int SKIP_LIMIT = 10;
-    public static final int CHUNK_SIZE = 500;
+    public static final int CHUNK_SIZE = 1000;
 
     @Autowired
     private SimpleJobLauncher jobLauncher;
@@ -152,12 +153,12 @@ public class DataMigrationService {
 
         Step tenantSpecificStep = stepBuilderFactory.get(table + "_" + tenant + "_" + "MigrationStep")
                 .listener(new BPStepListener(tenant))
-                .<Map<String, Object>, Map<String, Object>>chunk(CHUNK_SIZE).faultTolerant().noSkip(Exception.class)
-                .skipLimit(SKIP_LIMIT)
+                .transactionManager(new DataSourceTransactionManager(detinationDataSource))
+                .<Map<String, Object>, Map<String, Object>>chunk(CHUNK_SIZE)
                 .reader(buildItemReader(dataSource, table, tenant))
                 .processor(new CustomItemProcessor())
-                .writer(buildItemWriter(detinationDataSource, table, targetNameSpace)).faultTolerant()
-                .noSkip(Exception.class).skipLimit(SKIP_LIMIT)
+                .writer(buildItemWriter(detinationDataSource, table, targetNameSpace))
+                .faultTolerant().skip(DuplicateKeyException.class).skipLimit(SKIP_LIMIT)
                 .build();
 
         return tenantSpecificStep;
@@ -168,8 +169,8 @@ public class DataMigrationService {
 
         Step tenantSpecificStep = stepBuilderFactory.get(table + "_" + primaryKeyValue + "_" + "MigrationStep")
                 .listener(new BPStepListener(tenant))
-                .<Map<String, Object>, Map<String, Object>>chunk(CHUNK_SIZE).faultTolerant()
-                .skip(DuplicateKeyException.class).skipLimit(Integer.MAX_VALUE)
+                .transactionManager(new DataSourceTransactionManager(detinationDataSource))
+                .<Map<String, Object>, Map<String, Object>>chunk(CHUNK_SIZE)
                 .reader(buildOneRecordItemReader(dataSource, table, primaryKeyName, primaryKeyValue))
                 .processor(new CustomItemProcessor())
                 .writer(new SpecificRecordItemWriter(detinationDataSource, table, targetNameSpace)).faultTolerant()
@@ -199,7 +200,7 @@ public class DataMigrationService {
 
         JdbcPagingItemReader<Map<String, Object>> itemReader = new JdbcPagingItemReader<>();
         itemReader.setDataSource(dataSource);
-        itemReader.setPageSize(500);
+        itemReader.setPageSize(CHUNK_SIZE);
         itemReader.setQueryProvider(generateSqlPagingQueryProvider(tableName, tenantName, tenant, sortKeysString));
         itemReader.setRowMapper(new ColumnMapRowMapper());
         try {
