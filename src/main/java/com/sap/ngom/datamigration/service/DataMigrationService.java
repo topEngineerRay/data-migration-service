@@ -33,7 +33,6 @@ import org.springframework.batch.item.database.support.PostgresPagingQueryProvid
 import org.springframework.batch.item.support.AbstractItemStreamItemReader;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.context.annotation.Bean;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.dao.DuplicateKeyException;
 import org.springframework.jdbc.core.ColumnMapRowMapper;
@@ -201,7 +200,7 @@ public class DataMigrationService {
 
         JdbcPagingItemReader<Map<String, Object>> itemReader = new JdbcPagingItemReader<>();
         itemReader.setDataSource(dataSource);
-        itemReader.setPageSize(1000);
+        itemReader.setPageSize(CHUNK_SIZE);
         itemReader.setQueryProvider(generateSqlPagingQueryProvider(tableName, tenantName, tenant, sortKeysString));
         itemReader.setRowMapper(new ColumnMapRowMapper());
         try {
