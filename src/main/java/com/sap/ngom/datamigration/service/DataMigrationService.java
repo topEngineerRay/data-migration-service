@@ -3,6 +3,7 @@ package com.sap.ngom.datamigration.service;
 import com.sap.ngom.datamigration.configuration.BatchJobParameterHolder;
 import com.sap.ngom.datamigration.exception.RunJobException;
 import com.sap.ngom.datamigration.listener.BPStepListener;
+import com.sap.ngom.datamigration.listener.ChunkExecutionListener;
 import com.sap.ngom.datamigration.listener.JobCompletionNotificationListener;
 import com.sap.ngom.datamigration.model.JobStatus;
 import com.sap.ngom.datamigration.model.MigrateRecord;
@@ -156,9 +157,9 @@ public class DataMigrationService {
                 .transactionManager(new DataSourceTransactionManager(detinationDataSource))
                 .<Map<String, Object>, Map<String, Object>>chunk(CHUNK_SIZE)
                 .reader(buildItemReader(dataSource, table, tenant))
-                .processor(new CustomItemProcessor())
                 .writer(buildItemWriter(detinationDataSource, table, targetNameSpace))
                 .faultTolerant().skip(DuplicateKeyException.class).skipLimit(SKIP_LIMIT)
+                .listener(new ChunkExecutionListener())
                 .build();
 
         return tenantSpecificStep;
