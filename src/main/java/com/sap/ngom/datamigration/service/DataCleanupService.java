@@ -8,6 +8,7 @@ import com.sap.ngom.util.hana.db.exceptions.HanaDataSourceDeterminationException
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
@@ -75,7 +76,7 @@ public class DataCleanupService {
                     try {
                         log.info("Execute SQL for tenant " + tenant + ": TRUNCATE TABLE " + tableName + '.');
                         hanaJdbcTemplate.execute("TRUNCATE TABLE " + "\"" + tableName + "\"");
-                    } catch (HanaDataSourceDeterminationException e) {
+                    } catch (HanaDataSourceDeterminationException | DataAccessException e) {
                         hasError.set(true);
                         log.error("[Cleanup] Exception occurs when execute SQL DELETE for tenant: " + tenant + " in table: " + tableName + ": ", e);
                     }
