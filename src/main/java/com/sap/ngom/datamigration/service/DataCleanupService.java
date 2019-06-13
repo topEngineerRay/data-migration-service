@@ -4,6 +4,7 @@ import com.sap.ngom.datamigration.configuration.hana.TenantThreadLocalHolder;
 import com.sap.ngom.datamigration.exception.DataCleanupException;
 import com.sap.ngom.datamigration.util.DBConfigReader;
 import com.sap.ngom.datamigration.util.TenantHelper;
+import com.sap.ngom.util.hana.db.exceptions.HanaDataSourceDeterminationException;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -34,7 +35,7 @@ public class DataCleanupService {
 
     private static final Integer THREADS_NUMBERS = 10;
 
-    public void cleanData4OneTable(String tableName) throws Exception{
+    public void cleanData4OneTable(String tableName) {
         String targetTableName = dbConfigReader.getTargetTableName(tableName);
 
         List<String> tenantList = tenantHelper.getAllTenants(tableName);
@@ -43,7 +44,7 @@ public class DataCleanupService {
         ExecuteCleanup(tenantList, tableList);
     }
 
-    public void cleanData4AllTables() throws Exception{
+    public void cleanData4AllTables() {
         List<String> tableList = dbConfigReader.getSourceTableNames();
         List<String> tenantList = new ArrayList<String>();
         Set<String> tenantSet = new HashSet<>();
@@ -62,7 +63,7 @@ public class DataCleanupService {
         log.info("[cleanup][all] ******* Cleanup done for all tables." );
     }
 
-    private void ExecuteCleanup(List<String> tenantList, List<String> tableList) throws Exception {
+    private void ExecuteCleanup(List<String> tenantList, List<String> tableList)  {
         ExecutorService executorService = Executors.newFixedThreadPool(THREADS_NUMBERS);
         CountDownLatch tenantLatch = new CountDownLatch(tenantList.size());
         final AtomicBoolean hasError = new AtomicBoolean(false);
@@ -76,16 +77,12 @@ public class DataCleanupService {
                     try {
                         log.info("Execute SQL for tenant " + tenant + ": TRUNCATE TABLE " + tableName + '.');
                         hanaJdbcTemplate.execute("TRUNCATE TABLE " + "\"" + tableName + "\"");
-                    } catch (DataAccessException e) {
+                    } catch (HanaDataSourceDeterminationException e) {
                         hasError.set(true);
                         log.error("[cleanup] ++++ Exception occurs when execute SQL DELETE for tenant: " + tenant + " in table: " + tableName + ": " + e.getMessage());
                     }
                 }
-                try {
-                    hanaJdbcTemplate.getDataSource().getConnection().close();
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                }
+
                 tenantLatch.countDown();
                 log.info("[cleanup] Cleanup done for tenant: " + tenant + ". " + tenantLatch.getCount() + "/" + tenantList.size());
             });
@@ -101,7 +98,7 @@ public class DataCleanupService {
         executorService.shutdownNow();
 
         if(hasError.get() || tenantLatch.getCount() != 0) {
-            throw new DataCleanupException("[cleanup] Error occurs when delete data. ");
+            throw new DataCleanupException("[cleanup] Error occurs when delete data. Search logs with keyword Exception occurs when execute SQL DELETE");
         }
         log.info("[cleanup] <<<<< Cleanup done. ");
     }
