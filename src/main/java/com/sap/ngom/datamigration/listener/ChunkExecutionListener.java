@@ -13,7 +13,7 @@ public class ChunkExecutionListener extends ChunkListenerSupport {
 
     @Override
     public void afterChunk(ChunkContext context) {
-        logger.info("A chunk commit successfully at:" + LocalDateTime.now());
+        logger.info("[Migration] A chunk commit successfully at:" + LocalDateTime.now() +" of step:"+context.getStepContext().getStepName());
         super.afterChunk(context);
     }
 
