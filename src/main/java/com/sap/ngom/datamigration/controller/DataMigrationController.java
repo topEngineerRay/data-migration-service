@@ -133,13 +133,9 @@ public class DataMigrationController {
         ResponseMessage responseMessage = new ResponseMessage();
         responseMessage.setStatus(Status.SUCCESS);
         responseMessage.setMessage("Initialize successfully done for all the tables.");
-        try {
-            initializerService.initialize4AllTables();
-        } catch (Exception e) {
-            e.printStackTrace();
-            responseMessage.setStatus(Status.FAILURE);
-            responseMessage.setMessage(e.getMessage());
-        }
+
+        initializerService.initialize4AllTables();
+
         return ResponseEntity.ok().body(responseMessage);
     }
 
@@ -148,13 +144,9 @@ public class DataMigrationController {
         ResponseMessage responseMessage = new ResponseMessage();
         responseMessage.setStatus(Status.SUCCESS);
         responseMessage.setMessage("Initialize successfully done for the table: " + tableName + ".");
-        try {
-            initializerService.initialize4OneTable(tableName);
-        } catch (Exception e) {
-            e.printStackTrace();
-            responseMessage.setStatus(Status.FAILURE);
-            responseMessage.setMessage(e.getMessage());
-        }
+
+        initializerService.initialize4OneTable(tableName);
+
         return ResponseEntity.ok().body(responseMessage);
     }
 

@@ -8,12 +8,10 @@ import com.sap.ngom.util.hana.db.exceptions.HanaDataSourceDeterminationException
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.dao.DataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import javax.sql.DataSource;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -60,7 +58,7 @@ public class DataCleanupService {
         List allTenants = new ArrayList(tenantSet);
         ExecuteCleanup(allTenants, targetTableList);
 
-        log.info("[cleanup][all] ******* Cleanup done for all tables." );
+        log.info("[Cleanup][all] ******* Cleanup done for all tables." );
     }
 
     private void ExecuteCleanup(List<String> tenantList, List<String> tableList)  {
@@ -79,27 +77,27 @@ public class DataCleanupService {
                         hanaJdbcTemplate.execute("TRUNCATE TABLE " + "\"" + tableName + "\"");
                     } catch (HanaDataSourceDeterminationException e) {
                         hasError.set(true);
-                        log.error("[cleanup] ++++ Exception occurs when execute SQL DELETE for tenant: " + tenant + " in table: " + tableName + ": " + e.getMessage());
+                        log.error("[Cleanup] Exception occurs when execute SQL DELETE for tenant: " + tenant + " in table: " + tableName + ": ", e);
                     }
                 }
 
                 tenantLatch.countDown();
-                log.info("[cleanup] Cleanup done for tenant: " + tenant + ". " + tenantLatch.getCount() + "/" + tenantList.size());
+                log.info("[Cleanup] Cleanup done for tenant: " + tenant + ". " + tenantLatch.getCount() + "/" + tenantList.size());
             });
         }
 
         try {
             if(!tenantLatch.await(900, TimeUnit.SECONDS)) {
-                log.error("[cleanup] Timeout for cleanup [900 seconds]");
+                log.error("[Cleanup] Timeout for cleanup [900 seconds]");
             }
         } catch (InterruptedException e) {
-            log.error("[cleanup] tenantLatch.await interrupted exception occurs:", e);
+            log.error("[Cleanup] tenantLatch.await interrupted exception occurs:", e);
         }
         executorService.shutdownNow();
 
         if(hasError.get() || tenantLatch.getCount() != 0) {
-            throw new DataCleanupException("[cleanup] Error occurs when delete data. Search logs with keyword Exception occurs when execute SQL DELETE");
+            throw new DataCleanupException("[Cleanup] Error occurs when delete data. Search logs with keyword '[Cleanup] Exception' or '[Cleanup] Timeout'");
         }
-        log.info("[cleanup] <<<<< Cleanup done. ");
+        log.info("[Cleanup] <<<<< Cleanup done. ");
     }
 }
