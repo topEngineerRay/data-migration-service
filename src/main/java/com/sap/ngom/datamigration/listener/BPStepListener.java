@@ -22,9 +22,13 @@ public class BPStepListener implements StepExecutionListener {
 
     @Override
     public ExitStatus afterStep(StepExecution stepExecution) {
-        log.info("data count after read:" +stepExecution.getReadCount());
+        log.info("The migration step:" + stepExecution.getStepName() + " start at:" + stepExecution.getStartTime()
+                + " end at:" + stepExecution.getEndTime());
+
+        log.info("data count after read of this step:" +stepExecution.getReadCount());
         log.info("data commit count after read:" +stepExecution.getCommitCount());
         log.info("data write count after read:" +stepExecution.getWriteCount());
-        return null;
+
+        return stepExecution.getExitStatus();
     }
 }
