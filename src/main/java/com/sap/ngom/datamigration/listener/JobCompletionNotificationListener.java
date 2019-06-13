@@ -22,16 +22,16 @@ public class JobCompletionNotificationListener extends JobExecutionListenerSuppo
 
     @Override
     public void afterJob(JobExecution jobExecution) {
-        log.info("Job Name: " + jobExecution.getJobInstance().getJobName() + ", Job Id: " + jobExecution.getJobId()
+        log.info("[Migration] Job Name: " + jobExecution.getJobInstance().getJobName() + ", Job Id: " + jobExecution.getJobId()
                 + ", Job Status: " + jobExecution.getStatus().toString());
-        log.info("Job statrt time is:" + jobExecution.getStartTime() + ",job end time is:" + jobExecution.getEndTime());
+        log.info("[Migration] Job statrt time is:" + jobExecution.getStartTime() + ",job end time is:" + jobExecution.getEndTime());
 
         String tableName = jobExecution.getJobInstance().getJobName()
                 .substring(0, jobExecution.getJobInstance().getJobName().lastIndexOf("_MigrationJob"));
         batchJobParameterHolder.unLockJob(tableName);
 
         if (jobExecution.getStatus() == BatchStatus.FAILED) {
-            log.warn("Job fail message: " + jobExecution.getAllFailureExceptions().toString());
+            log.error("[Migration] Job fail message: " + jobExecution.getAllFailureExceptions().toString());
         }
     }
 }
