@@ -7,7 +7,6 @@ import com.sap.ngom.datamigration.util.TableNameValidator;
 import com.sap.ngom.datamigration.util.TenantHelper;
 import com.sap.ngom.util.hana.db.configuration.MultiTenantDataSourceHolder;
 import com.sap.ngom.util.hana.db.exceptions.HDIDeploymentException;
-import com.sap.ngom.util.hana.db.exceptions.HanaDataSourceDeterminationException;
 import com.sap.ngom.util.hana.db.utils.HDIDeployerClient;
 import com.sap.xsa.core.instancemanager.client.*;
 import lombok.extern.log4j.Log4j2;
