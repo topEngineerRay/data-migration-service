@@ -130,7 +130,7 @@ public class InitializerService {
                             }
                         } catch (HDIDeploymentException e) {
                             hasError.set(true);
-                            log.error("[Initialization] Exception when determine data source: ", e);
+                            log.error("[Initialization] Exception when call HDI deployer: " + e.getMessage());
                         }
                     }
                 }
