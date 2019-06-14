@@ -78,7 +78,7 @@ public class DataCleanupService {
                         hanaJdbcTemplate.execute("TRUNCATE TABLE " + "\"" + tableName + "\"");
                     } catch (HanaDataSourceDeterminationException | DataAccessException e) {
                         hasError.set(true);
-                        log.error("[Cleanup] Exception occurs when execute SQL DELETE for tenant: " + tenant + " in table: " + tableName + ": ", e);
+                        log.error("[Cleanup] Exception when execute SQL DELETE for tenant: " + tenant + " in table " + tableName + ": " + e.getMessage());
                     }
                 }
 

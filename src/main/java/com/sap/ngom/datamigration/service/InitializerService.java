@@ -7,11 +7,9 @@ import com.sap.ngom.datamigration.util.TableNameValidator;
 import com.sap.ngom.datamigration.util.TenantHelper;
 import com.sap.ngom.util.hana.db.configuration.MultiTenantDataSourceHolder;
 import com.sap.ngom.util.hana.db.exceptions.HDIDeploymentException;
+import com.sap.ngom.util.hana.db.exceptions.HanaDataSourceDeterminationException;
 import com.sap.ngom.util.hana.db.utils.HDIDeployerClient;
-import com.sap.xsa.core.instancemanager.client.ImClientException;
-import com.sap.xsa.core.instancemanager.client.InstanceCreationOptions;
-import com.sap.xsa.core.instancemanager.client.InstanceManagerClient;
-import com.sap.xsa.core.instancemanager.client.ManagedServiceInstance;
+import com.sap.xsa.core.instancemanager.client.*;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -55,7 +53,6 @@ public class InitializerService {
     public void initialize4OneTable(String tableName){
         tableNameValidator.tableNameValidation(tableName);
         List<String> tenantList = tenantHelper.getAllTenants(tableName);
-
         ExecuteInitilization(tenantList);
 
     }
@@ -120,16 +117,22 @@ public class InitializerService {
                         Thread.currentThread().interrupt();
                     }
 
-                    // call HDI deployer
-                    try {
-                        hdiDeployerClient.executeHDIDeployment(managedServiceInstance);
-                        dataSource = hdiDeployerClient.createDataSource(managedServiceInstance);
-                        if(managedServiceInstance.getId().equals(finalTenantId)) {
-                            multiTenantDataSourceHolder.storeDataSource(finalTenantId, dataSource);
-                        }
-                    } catch (HDIDeploymentException e) {
+                    if (managedServiceInstance.getStatus() != OperationStatus.CREATION_SUCCEEDED && managedServiceInstance.getStatus() != OperationStatus.UPDATE_SUCCEEDED) {
                         hasError.set(true);
-                        log.error("[Initialization] Exception when determine data source: ", e);
+                        log.error("[Initialization] Exception the managed hana instance status is " + managedServiceInstance.getStatus() + " for Tenant: " + managedServiceInstance.getId());
+                    } else {
+
+                        // call HDI deployer
+                        try {
+                            hdiDeployerClient.executeHDIDeployment(managedServiceInstance);
+                            dataSource = hdiDeployerClient.createDataSource(managedServiceInstance);
+                            if (managedServiceInstance.getId().equals(finalTenantId)) {
+                                multiTenantDataSourceHolder.storeDataSource(finalTenantId, dataSource);
+                            }
+                        } catch (HDIDeploymentException e) {
+                            hasError.set(true);
+                            log.error("[Initialization] Exception when determine data source: ", e);
+                        }
                     }
                 }
 
@@ -143,7 +146,7 @@ public class InitializerService {
                 log.error("[Initialization] Timeout count down: {}/{}", tenantLatch.getCount(), tenantList.size());
             }
         } catch (InterruptedException e) {
-            log.error("[Initialization] tenantLatch.await interrupted exception occurs:", e);
+            log.error("[Initialization] Exception tenantLatch.await interrupted exception occurs:", e);
         }
         executorService.shutdownNow();
 
@@ -178,7 +181,7 @@ public class InitializerService {
             try {
                 asyncResult.put(managedServiceInstance);
             } catch (InterruptedException e) {
-                log.error("[Initialization][CreationSuccess] interrupted exception occurs:", e);
+                log.error("[Initialization] Exception managed service onCreationSuccess interrupted exception occurs:", e);
                 Thread.currentThread().interrupt();
             }
         }
@@ -190,7 +193,7 @@ public class InitializerService {
             try {
                 asyncResult.put(null);
             } catch (InterruptedException e) {
-                log.error("[Initialization][CreationError] interrupted exception occurs:", e);
+                log.error("[Initialization] Exception managed service onCreationError interrupted exception occurs:", e);
                 Thread.currentThread().interrupt();
             }
         }
