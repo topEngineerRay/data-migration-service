@@ -69,20 +69,21 @@ public class DataCleanupService {
 
         for (String tenant : tenantList) {
             executorService.submit(() -> {
-                //change data source
-                TenantThreadLocalHolder.setTenant(tenant);
-                JdbcTemplate hanaJdbcTemplate = new JdbcTemplate(targetDataSource);
-                for (String tableName : tableList) {
-                    try {
+                try {
+                    //change data source
+                    TenantThreadLocalHolder.setTenant(tenant);
+                    JdbcTemplate hanaJdbcTemplate = new JdbcTemplate(targetDataSource);
+                    for (String tableName : tableList) {
                         log.info("Execute SQL for tenant " + tenant + ": TRUNCATE TABLE " + tableName + '.');
                         hanaJdbcTemplate.execute("TRUNCATE TABLE " + "\"" + tableName + "\"");
-                    } catch (HanaDataSourceDeterminationException | DataAccessException e) {
-                        hasError.set(true);
-                        log.error("[Cleanup] Exception when execute SQL DELETE for tenant: " + tenant + " in table " + tableName + ": " + e.getMessage());
                     }
+                } catch (Exception e) {
+                    hasError.set(true);
+                    log.error("[Cleanup] Exception for tenant: " + tenant  + ": " + e.getMessage(), e);
+                } finally {
+                    tenantLatch.countDown();
                 }
 
-                tenantLatch.countDown();
                 log.info("[Cleanup] Cleanup done for tenant: " + tenant + ". " + tenantLatch.getCount() + "/" + tenantList.size());
             });
         }
@@ -96,8 +97,11 @@ public class DataCleanupService {
         }
         executorService.shutdownNow();
 
-        if(hasError.get() || tenantLatch.getCount() != 0) {
-            throw new DataCleanupException("[Cleanup] Error occurs when delete data. Search logs with keyword '[Cleanup] Exception' or '[Cleanup] Timeout'");
+        if(tenantLatch.getCount() != 0) {
+            throw new DataCleanupException("[Cleanup] Timeout after 15 mins");
+        }
+        if(hasError.get()) {
+            throw new DataCleanupException("[Cleanup] Error occurs when delete data. Search logs with keyword '[Cleanup] Exception'");
         }
         log.info("[Cleanup] <<<<< Cleanup done. ");
     }

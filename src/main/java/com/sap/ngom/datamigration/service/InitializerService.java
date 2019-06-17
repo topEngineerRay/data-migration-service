@@ -80,62 +80,55 @@ public class InitializerService {
             }
             String finalTenantId = oriTenantId;
             executorService.submit(() -> {
-                DataSource dataSource = multiTenantDataSourceHolder.getDataSource(finalTenantId);
+                try {
+                    DataSource dataSource = multiTenantDataSourceHolder.getDataSource(finalTenantId);
 
-                if (dataSource == null) {
-                    ManagedServiceInstance managedServiceInstance = null;
+                    if (dataSource == null) {
+                        ManagedServiceInstance managedServiceInstance = finalImClient.getManagedInstance(finalTenantId);
 
-                    try {
-                        managedServiceInstance = finalImClient.getManagedInstance(finalTenantId);
-                    } catch (ImClientException e) {
-                        log.error("[Initialization] Exception when get managed instance: ", e);
-                    }
-                    if (managedServiceInstance == null) { //new tenant to be created
-                        final BlockingQueue<ManagedServiceInstance> asyncResult = new SynchronousQueue<>();
-                        tenantAsyncResults.put(finalTenantId, asyncResult);
+                        if (managedServiceInstance == null) { //new tenant to be created
+                            final BlockingQueue<ManagedServiceInstance> asyncResult = new SynchronousQueue<>();
+                            tenantAsyncResults.put(finalTenantId, asyncResult);
 
-                        Map<String, Object> provisioningParameters = new HashMap<>();
-                        InstanceCreationOptions instanceCreationOptions = new InstanceCreationOptions();
-                        instanceCreationOptions = instanceCreationOptions.withProvisioningParameters(provisioningParameters);
-                        try {
+                            Map<String, Object> provisioningParameters = new HashMap<>();
+                            InstanceCreationOptions instanceCreationOptions = new InstanceCreationOptions();
+                            instanceCreationOptions = instanceCreationOptions.withProvisioningParameters(provisioningParameters);
+
                             finalImClient.createManagedInstance(finalTenantId, this.creationManagedInstanceCallback, instanceCreationOptions);
-                        } catch (ImClientException e) {
-                            log.error("[Initialization] Exception when trigger creation of managed instance: ", e);
-                        }
-                        try {
                             Object instanceManager = asyncResult.take();
                             managedServiceInstance = (ManagedServiceInstance) instanceManager;
-                        } catch (InterruptedException e) {
-                            log.error("[Initialization] Exception ManagedServiceInstance interrupted exception occurs: ", e);
                         }
-                    }
-                    if (managedServiceInstance == null) {
-                        hasError.set(true);
-                        log.error("[Initialization] Exception when create managed instance for tenant: " + finalTenantId);
-                        tenantLatch.countDown();
-                        Thread.currentThread().interrupt();
-                    }
 
-                    if (managedServiceInstance.getStatus() != OperationStatus.CREATION_SUCCEEDED && managedServiceInstance.getStatus() != OperationStatus.UPDATE_SUCCEEDED) {
-                        hasError.set(true);
-                        log.error("[Initialization] Exception the managed hana instance status is " + managedServiceInstance.getStatus() + " for Tenant: " + managedServiceInstance.getId());
-                    } else {
+                        if (managedServiceInstance == null) {
+                            hasError.set(true);
+                            log.error("[Initialization] Exception when create managed instance for tenant: " + finalTenantId);
+                            tenantLatch.countDown();
+                            Thread.currentThread().interrupt();
+                        }
 
-                        // call HDI deployer
-                        try {
+                        if (managedServiceInstance.getStatus() != OperationStatus.CREATION_SUCCEEDED && managedServiceInstance.getStatus() != OperationStatus.UPDATE_SUCCEEDED) {
+                            hasError.set(true);
+                            log.error("[Initialization] Exception the managed hana instance status is " + managedServiceInstance.getStatus() + " for Tenant: " + managedServiceInstance.getId());
+                        } else {
+                            // call HDI deployer
                             hdiDeployerClient.executeHDIDeployment(managedServiceInstance);
                             dataSource = hdiDeployerClient.createDataSource(managedServiceInstance);
                             if (managedServiceInstance.getId().equals(finalTenantId)) {
                                 multiTenantDataSourceHolder.storeDataSource(finalTenantId, dataSource);
                             }
-                        } catch (HDIDeploymentException e) {
-                            hasError.set(true);
-                            log.error("[Initialization] Exception when call HDI deployer: " + e.getMessage());
                         }
                     }
+                } catch (ImClientException e) {
+                    log.error("[Initialization] Exception when get/create managed instance: ", e);
+                } catch (InterruptedException e) {
+                    log.error("[Initialization] Exception interrupted exception occurs: ", e);
+                } catch (HDIDeploymentException e) {
+                    hasError.set(true);
+                    log.error("[Initialization] Exception when call HDI deployer: " + e.getMessage(), e);
+                } finally {
+                    tenantLatch.countDown();
                 }
 
-                tenantLatch.countDown();
                 log.info("[Initialization] Initialization done for tenant: " + finalTenantId + ". " + tenantLatch.getCount() + "/" + tenantList.size());
             });
         }
@@ -149,10 +142,12 @@ public class InitializerService {
         }
         executorService.shutdownNow();
 
-        if(hasError.get() || tenantLatch.getCount() != 0) {
-            throw new InitializerException("[Initialization] Error occurs when initialize tenants. Search logs with keyword '[Initialization] Exception' or '[Initialization] Timeout'");
+        if(tenantLatch.getCount() != 0) {
+            throw new InitializerException("[Initialization] Timeout after 50 mins");
         }
-
+        if(hasError.get()) {
+            throw new InitializerException("[Initialization] Error occurs when initialize tenants. Search logs with keyword '[Initialization] Exception'");
+        }
         Long endTimestamp = System.currentTimeMillis();
         log.info("[Initialization] Initialize all tenants, takes time {}", (endTimestamp - startTimestamp));
     }
