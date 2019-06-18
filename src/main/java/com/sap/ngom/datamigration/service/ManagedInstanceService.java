@@ -27,7 +27,7 @@ public class ManagedInstanceService {
     MultiTenantDataSourceHolder multiTenantDataSourceHolder;
 
     public void deleteAll() throws Exception{
-        ExecutorService executorService = Executors.newFixedThreadPool(10);
+        ExecutorService executorService = Executors.newFixedThreadPool(1);
         InstanceManagerClient imClient = instanceManagerUtil.getInstanceManagerClient();
         List<ManagedServiceInstance> managedServiceInstances = imClient.getManagedInstances();
 
