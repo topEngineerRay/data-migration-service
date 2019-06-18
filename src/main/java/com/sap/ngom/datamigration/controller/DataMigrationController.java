@@ -13,6 +13,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ExecutionException;
 
 @RequestMapping
 @Controller
@@ -118,13 +119,13 @@ public class DataMigrationController {
     }
     
     @PostMapping("/data/verification")
-    public ResponseEntity<ResponseMessage> dataVerificationForOneTable(){
+    public ResponseEntity<ResponseMessage> dataVerificationForOneTable() throws ExecutionException, InterruptedException {
         return ResponseEntity.status(200).body(dataVerificationService.dataVerificationForAllTable());
     }
 
 
     @PostMapping("/data/verification/{tableName}")
-    public ResponseEntity<ResponseMessage> dataVerificationForAllTable(@PathVariable("tableName")final String tableName){
+    public ResponseEntity<ResponseMessage> dataVerificationForAllTable(@PathVariable("tableName")final String tableName) throws ExecutionException, InterruptedException {
         return ResponseEntity.status(200).body(dataVerificationService.dataVerificationForOneTable(tableName));
     }
 

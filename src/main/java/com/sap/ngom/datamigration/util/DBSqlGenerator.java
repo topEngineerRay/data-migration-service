@@ -54,7 +54,7 @@ public class DBSqlGenerator {
             }
         }
         md5SqlBuilder.delete(md5SqlBuilder.length() - operatorAND.length(), md5SqlBuilder.length());
-        return "select " + tableInfo.getPrimaryKey() + " as \"tablePrimaryKey\", upper(md5(" + md5SqlBuilder.toString() + ")) as \"md5Result\" from " + tableInfo.getSourceTableName() + " where " + tableInfo.getTenantColumnName() + "=\'" + tableInfo.getTenant() + "\'";
+        return "select " + tableInfo.getPrimaryKey() + " as \"tablePrimaryKey\", upper(md5(" + md5SqlBuilder.toString() + ")) as \"md5Result\" from " + tableInfo.getSourceTableName();
     }
 
     private SortedMap<String, String> getAllColumnsNameAndTypeForPostgres(TableInfo tableInfo, JdbcTemplate jdbcTemplate) {

@@ -2,6 +2,7 @@ package com.sap.ngom.datamigration.model.verification;
 
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.sap.ngom.datamigration.configuration.hana.TenantThreadLocalHolder;
 import lombok.*;
 
 @Getter
@@ -14,6 +15,9 @@ public class TableInfo {
     private String sourceTableName;
     private String targetTableName;
     private String tenantColumnName;
-    private String tenant;
     private String primaryKey;
+    private SourceTableInfo sourceTableInfo;
+    public String getTenant(){
+        return TenantThreadLocalHolder.getTenant();
+    }
 }

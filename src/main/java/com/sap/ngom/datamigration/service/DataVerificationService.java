@@ -16,6 +16,8 @@ import javax.sql.DataSource;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.*;
+import java.util.concurrent.*;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 @Log4j2
@@ -45,14 +47,19 @@ public class DataVerificationService {
     private static final String COMMA_DELIMITER = ",";
     private static final String PK_COLUMN_LABEL = "tablePrimaryKey";
     private static final String MD5_COLUMN_LABEL = "md5Result";
+    private static final Integer THREADS_NUMBERS = 4;
 
 
-    public ResponseMessage dataVerificationForOneTable(String tableName) {
+
+    public ResponseMessage dataVerificationForOneTable(String tableName) throws InterruptedException {
 
         ResponseMessage responseMessage = new ResponseMessage();
         TableResult tableResult = verifyOneTableResult(tableName);
 
-        if(tableResult.getDataConsistent()) {
+
+
+
+        if(tableResult.getDataConsistent().get()) {
             responseMessage.setStatus(Status.SUCCESS);
             responseMessage.setMessage("Data CONSISTENT between source and target after verification.");
             responseMessage.setDetail(null);
@@ -69,22 +76,32 @@ public class DataVerificationService {
         return responseMessage;
     }
 
-    public ResponseMessage dataVerificationForAllTable() {
+    public ResponseMessage dataVerificationForAllTable() throws ExecutionException, InterruptedException {
 
-        boolean isTableDataConsistent = true;
         List<String> tableList = dbConfigReader.getSourceTableNames();
         ResponseMessage responseMessage = new ResponseMessage();
+        ExecutorService executorService = Executors.newFixedThreadPool(THREADS_NUMBERS);
         List<TableResult> tablesResultList = new ArrayList<>();
-
-        for (String tableName : tableList) {
-            TableResult tableResult = verifyOneTableResult(tableName);
-            if(!tableResult.getDataConsistent()){
-                isTableDataConsistent = false;
-                tablesResultList.add(tableResult);
-            }
+        List<Callable<TableResult>> callableList = new ArrayList<>();
+        for(String tableName : tableList) {
+            Callable<TableResult> callable = () -> verifyOneTableResult(tableName);
+            callableList.add(callable);
 
         }
-        if(isTableDataConsistent){
+
+        List<Future<TableResult>> futureResultList = null;
+
+        futureResultList = executorService.invokeAll(callableList);
+        for(Future<TableResult> futureResult : futureResultList) {
+                TableResult tableResult = futureResult.get();
+                if(!tableResult.getDataConsistent().get()){
+                    tablesResultList.add(tableResult);
+                }
+
+        }
+        awaitTerminationAfterShutdown(executorService);
+
+        if(tablesResultList.isEmpty()){
             responseMessage.setStatus(Status.SUCCESS);
             responseMessage.setMessage("Data CONSISTENT between source and target after verification.");
             responseMessage.setDetail(null);
@@ -100,54 +117,74 @@ public class DataVerificationService {
         return responseMessage;
     }
 
+    public void awaitTerminationAfterShutdown(ExecutorService threadPool) throws InterruptedException {
+        threadPool.shutdown();
+        try {
+            if (!threadPool.awaitTermination(500, TimeUnit.SECONDS)) {
+                threadPool.shutdownNow();
+            }
+        } catch (InterruptedException ex) {
+            threadPool.shutdownNow();
+            Thread.currentThread().interrupt();
+            throw new InterruptedException(ex.getMessage());
+        }
+    }
 
-    private TableResult verifyOneTableResult(String tableName) {
+    private TableResult verifyOneTableResult(String tableName) throws InterruptedException {
 
         log.info("Data verification is starting for table: " + tableName);
         TableResult tableResult = new TableResult();
-        tableResult.setDataConsistent(true);
+        tableResult.setDataConsistent(new AtomicBoolean(true));
         JdbcTemplate jdbcTemplate = new JdbcTemplate(sourceDataSource);
         TableInfo tableInfo = initialTableInfo(tableName, jdbcTemplate);
+        String postgresSql = dbSqlGenerator.generatePostgresMd5Sql(tableInfo, jdbcTemplate);
+        SourceTableInfo sourceTableInfo = new SourceTableInfo();
+        sourceTableInfo.setPostgresMd5Sql(postgresSql);
+        tableInfo.setSourceTableInfo(sourceTableInfo);
         List<TenantResult> tenantsResultList = new ArrayList<>();
         Map<String,Integer> tenantAndCountMap = retrieveTenantAndCountFromPostgres(tableInfo,jdbcTemplate);
+        ExecutorService executorService = Executors.newFixedThreadPool(THREADS_NUMBERS);
 
-        for (Map.Entry<String,Integer> entry : tenantAndCountMap.entrySet()) {
-            final String tenant = entry.getKey();
-            final int postgresRecordsCount = entry.getValue();
-            TenantThreadLocalHolder.setTenant(tenant);
-            tableInfo.setTenant(tenant);
-            JdbcTemplate hanaJdbcTemplate = new JdbcTemplate(targetDataSource);
-            int hanaRecordsCount = hanaJdbcTemplate.queryForObject("select count(*) from " + "\"" + tableInfo.getTargetTableName() + "\"",Integer.class);
-            CountResult countResult = new CountResult();
-            TenantResult tenantResult = new TenantResult();
-            boolean tenantDataConsistent = true;
-            if(postgresRecordsCount != hanaRecordsCount){
-                tableResult.setDataConsistent(false);
-                tenantDataConsistent = false;
-            } else if( hanaRecordsCount != 0 && !tableInfo.getPrimaryKey().isEmpty()){
+        for(Map.Entry<String,Integer> entry : tenantAndCountMap.entrySet()) {
+            executorService.submit(() -> {
+                int postgresRecordsCount = entry.getValue();
+                final String tenant = entry.getKey();
+                TenantThreadLocalHolder.setTenant(tenant);
 
-                //MD5 content check
-                List<String> failedRecords = md5Check(tableInfo).entrySet().stream()
-                                .map(Map.Entry::getKey).collect(Collectors.toList());
-
-                if(!failedRecords.isEmpty()) {
-                    tableResult.setDataConsistent(false);
+                JdbcTemplate hanaJdbcTemplate = new JdbcTemplate(targetDataSource);
+                int hanaRecordsCount = hanaJdbcTemplate.queryForObject("select count(*) from " + "\"" + tableInfo.getTargetTableName() + "\"", Integer.class);
+                CountResult countResult = new CountResult();
+                TenantResult tenantResult = new TenantResult();
+                boolean tenantDataConsistent = true;
+                if (postgresRecordsCount != hanaRecordsCount) {
                     tenantDataConsistent = false;
-                    tenantResult.setInconsistentRecords(failedRecords);
+                } else if (hanaRecordsCount != 0 && !tableInfo.getPrimaryKey().isEmpty()) {
+                    //MD5 content check
+                    List<String> failedRecords = md5Check(tableInfo).entrySet().stream()
+                            .map(Map.Entry::getKey).collect(Collectors.toList());
+
+                    if (!failedRecords.isEmpty()) {
+                        tenantDataConsistent = false;
+                        tenantResult.setInconsistentRecords(failedRecords);
+                    }
                 }
-            }
 
-            if(!tenantDataConsistent){
-                countResult.setSourceCount(tenantAndCountMap.get(tenant));
-                countResult.setTargetCount(hanaRecordsCount);
-                tenantResult.setTenant(tenant);
-                tenantResult.setCountResult(countResult);
-                tenantsResultList.add(tenantResult);
-            }
-            log.info("Data verification is completed for tenant (" + tenant + ") in table: " + tableName);
+                log.info("Data verification is completed for tenant (" + tenant + ") in table: " + tableInfo.getSourceTableName());
+                if (!tenantDataConsistent) {
+                    tableResult.getDataConsistent().set(false);
+                    countResult.setSourceCount(postgresRecordsCount);
+                    countResult.setTargetCount(hanaRecordsCount);
+                    tenantResult.setTenant(tenant);
+                    tenantResult.setCountResult(countResult);
+                    tenantsResultList.add(tenantResult);
 
+                }
+            });
         }
-        if(!tableResult.getDataConsistent()){
+        
+        awaitTerminationAfterShutdown(executorService);
+
+        if(!tableResult.getDataConsistent().get()){
             tableResult.setTenants(tenantsResultList);
             tableResult.setTable(tableName);
             if(!tableInfo.getPrimaryKey().isEmpty()){
@@ -158,6 +195,7 @@ public class DataVerificationService {
         log.info("Data verification is completed for table: " + tableName);
         return tableResult;
     }
+    
 
     private Map<String,Integer> retrieveTenantAndCountFromPostgres(TableInfo tableInfo, JdbcTemplate jdbcTemplate) {
         final String tenantColumnName = tableInfo.getTenantColumnName();
@@ -179,10 +217,10 @@ public class DataVerificationService {
 
         final String hanaMd5Sql = dbSqlGenerator.generateHanaMd5Sql(tableInfo,hanaJdbcTemplate);
         Map<String,String> hanaMd5Result = getPKAndMD5ValueFromDB(hanaJdbcTemplate,hanaMd5Sql);
-        final String postgresMd5Sql = dbSqlGenerator.generatePostgresMd5Sql(tableInfo, postgresJdbcTemplate);
+        String postgresMd5Sql = tableInfo.getSourceTableInfo().getPostgresMd5Sql() + " where " + tableInfo.getTenantColumnName() + "=\'" + tableInfo.getTenant() + "\'";
         Map<String,String> postgresMd5Result = getPKAndMD5ValueFromDB(postgresJdbcTemplate,postgresMd5Sql);
 
-        Map<String, FailedRecordStatus> failedRecordMap = new HashMap<>();
+        Map<String, FailedRecordStatus> failedRecordMap = new LinkedHashMap<>();
         for(Map.Entry<String, String> entry : postgresMd5Result.entrySet()){
             final String recordPkValue = entry.getKey();
             final String recordMd5ValuePostgres = entry.getValue();
@@ -193,10 +231,9 @@ public class DataVerificationService {
                 failedRecordMap.put(recordPkValue, FailedRecordStatus.CHECKAGAIN);
             }
             if(failedRecordMap.size() >= MISMATCH_RECORDS_MAX_NUM && postgresMd5Result.size() > MISMATCH_RECORDS_MAX_NUM ){
-                 updateFailedRecordsMapByJavaEquals(failedRecordMap, tableInfo);
+                updateFailedRecordsMapByJavaEquals(failedRecordMap, tableInfo);
             }
             if(failedRecordMap.size() >= MISMATCH_RECORDS_MAX_NUM && postgresMd5Result.size() > MISMATCH_RECORDS_MAX_NUM ){
-                failedRecordMap.put(MORE_INDICATOR, FailedRecordStatus.INCONSISTENT);
                 log.warn("Data verification only checked the first " + MISMATCH_RECORDS_MAX_NUM + " records for tenant (" + tableInfo.getTenant() + ") in table: " + tableInfo.getSourceTableName() +", as the inconsistent records reaches the predefined max number.");
                 break;
             }
@@ -204,16 +241,22 @@ public class DataVerificationService {
 
         //Java Equals check for current emoji issue (same emoji generate different md5 value in two dbs)
         updateFailedRecordsMapByJavaEquals(failedRecordMap, tableInfo);
+        if(failedRecordMap.size() >= MISMATCH_RECORDS_MAX_NUM && postgresMd5Result.size() > MISMATCH_RECORDS_MAX_NUM ) {
+            failedRecordMap.put(MORE_INDICATOR,FailedRecordStatus.INCONSISTENT);
+        }
         return failedRecordMap;
     }
 
     private void updateFailedRecordsMapByJavaEquals(Map<String, FailedRecordStatus> failedRecordMap, TableInfo tableInfo) {
+        log.info("Java object equals check is starting for tenant (" + tableInfo.getTenant() + ") in table: " + tableInfo.getSourceTableName());
 
         Map<String, FailedRecordStatus> needDoubleCheckRecordsMap = filterMapOnVerifiedStatus(failedRecordMap, FailedRecordStatus.CHECKAGAIN);
 
         if(needDoubleCheckRecordsMap.isEmpty()){
             return;
         }
+
+        log.info("Java object equals check is starting for tenant (" + tableInfo.getTenant() + ") in table: " + tableInfo.getSourceTableName());
 
         final JdbcTemplate hanaJdbcTemplate = new JdbcTemplate(targetDataSource);
         final JdbcTemplate postgresJdbcTemplate = new JdbcTemplate(sourceDataSource);
@@ -234,7 +277,7 @@ public class DataVerificationService {
         }
     }
     private Map<String, String> getPKAndMD5ValueFromDB(JdbcTemplate jdbcTemplate, String sql) {
-       return jdbcTemplate.query(sql, new ResultSetExtractor<Map<String,String>>() {
+        return jdbcTemplate.query(sql, new ResultSetExtractor<Map<String,String>>() {
             @Override
             public Map<String,String> extractData(ResultSet resultSet) throws SQLException {
                 Map<String, String> map = new HashMap<>();
