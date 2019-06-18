@@ -1,6 +1,6 @@
 package com.sap.ngom.datamigration.configuration.hana;
 
-import com.sap.ngom.util.hana.db.configuration.MultiTenantDataSourceHolder;
+import com.sap.ngom.util.hana.db.MultiTenantDataSourceHolder;
 import com.sap.ngom.util.hana.db.utils.HDIDeployerClient;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
