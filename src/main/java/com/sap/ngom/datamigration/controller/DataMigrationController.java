@@ -13,7 +13,6 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.ExecutionException;
 
 @RequestMapping
 @Controller
@@ -119,14 +118,22 @@ public class DataMigrationController {
     }
     
     @PostMapping("/data/verification")
-    public ResponseEntity<ResponseMessage> dataVerificationForOneTable() throws ExecutionException, InterruptedException {
-        return ResponseEntity.status(200).body(dataVerificationService.dataVerificationForAllTable());
+    public ResponseEntity<ResponseMessage> dataVerificationForAllTable()  {
+        try {
+            return ResponseEntity.status(200).body(dataVerificationService.dataVerificationForAllTable());
+        } catch (InterruptedException e) {
+            return ResponseEntity.status(500).build();
+        }
     }
 
 
     @PostMapping("/data/verification/{tableName}")
-    public ResponseEntity<ResponseMessage> dataVerificationForAllTable(@PathVariable("tableName")final String tableName) throws ExecutionException, InterruptedException {
-        return ResponseEntity.status(200).body(dataVerificationService.dataVerificationForOneTable(tableName));
+    public ResponseEntity<ResponseMessage> dataVerificationForOneTable(@PathVariable("tableName")final String tableName) {
+        try {
+            return ResponseEntity.status(200).body(dataVerificationService.dataVerificationForOneTable(tableName));
+        } catch (InterruptedException e) {
+            return ResponseEntity.status(500).build();
+        }
     }
 
     @PostMapping("/initialization")
