@@ -1,6 +1,7 @@
 package com.sap.ngom.datamigration.service;
 
 import com.sap.ngom.datamigration.configuration.hana.TenantThreadLocalHolder;
+import com.sap.ngom.datamigration.exception.DataVerificationException;
 import com.sap.ngom.datamigration.model.*;
 import com.sap.ngom.datamigration.model.verification.*;
 import com.sap.ngom.datamigration.util.DBConfigReader;
@@ -56,9 +57,6 @@ public class DataVerificationService {
         ResponseMessage responseMessage = new ResponseMessage();
         TableResult tableResult = verifyOneTableResult(tableName);
 
-
-
-
         if(tableResult.getDataConsistent().get()) {
             responseMessage.setStatus(Status.SUCCESS);
             responseMessage.setMessage("Data CONSISTENT between source and target after verification.");
@@ -76,29 +74,34 @@ public class DataVerificationService {
         return responseMessage;
     }
 
-    public ResponseMessage dataVerificationForAllTable() throws ExecutionException, InterruptedException {
+    public ResponseMessage dataVerificationForAllTable() throws InterruptedException {
 
         List<String> tableList = dbConfigReader.getSourceTableNames();
         ResponseMessage responseMessage = new ResponseMessage();
         ExecutorService executorService = Executors.newFixedThreadPool(THREADS_NUMBERS);
         List<TableResult> tablesResultList = new ArrayList<>();
-        List<Callable<TableResult>> callableList = new ArrayList<>();
-        for(String tableName : tableList) {
-            Callable<TableResult> callable = () -> verifyOneTableResult(tableName);
-            callableList.add(callable);
+        CompletionService<TableResult> completionService = new ExecutorCompletionService<>(executorService);
+        List<Future<TableResult>> futureResultList = new ArrayList<>();
 
+        for(String tableName : tableList) {
+            futureResultList.add(completionService.submit( () -> verifyOneTableResult(tableName)));
         }
 
-        List<Future<TableResult>> futureResultList = null;
-
-        futureResultList = executorService.invokeAll(callableList);
-        for(Future<TableResult> futureResult : futureResultList) {
-                TableResult tableResult = futureResult.get();
+        while(!futureResultList.isEmpty()) {
+            Future<TableResult> future = completionService.take();
+            futureResultList.remove(future);
+            try{
+                TableResult tableResult = future.get();
                 if(!tableResult.getDataConsistent().get()){
                     tablesResultList.add(tableResult);
                 }
-
+            } catch (ExecutionException e) {
+                log.error("[Verification] Exception occurs when verifying all table. Details: " + e.getMessage(),e );
+                executorService.shutdownNow();
+                throw new DataVerificationException("Data verification failed for all table, please check logs start with [Verification] Exception");
+            }
         }
+
         awaitTerminationAfterShutdown(executorService);
 
         if(tablesResultList.isEmpty()){
@@ -117,40 +120,26 @@ public class DataVerificationService {
         return responseMessage;
     }
 
-    public void awaitTerminationAfterShutdown(ExecutorService threadPool) throws InterruptedException {
-        threadPool.shutdown();
-        try {
-            if (!threadPool.awaitTermination(500, TimeUnit.SECONDS)) {
-                threadPool.shutdownNow();
-            }
-        } catch (InterruptedException ex) {
-            threadPool.shutdownNow();
-            Thread.currentThread().interrupt();
-            throw new InterruptedException(ex.getMessage());
-        }
-    }
 
     private TableResult verifyOneTableResult(String tableName) throws InterruptedException {
 
-        log.info("Data verification is starting for table: " + tableName);
+        log.info("Start verifying table: " + tableName);
         TableResult tableResult = new TableResult();
         tableResult.setDataConsistent(new AtomicBoolean(true));
         JdbcTemplate jdbcTemplate = new JdbcTemplate(sourceDataSource);
         TableInfo tableInfo = initialTableInfo(tableName, jdbcTemplate);
-        String postgresSql = dbSqlGenerator.generatePostgresMd5Sql(tableInfo, jdbcTemplate);
-        SourceTableInfo sourceTableInfo = new SourceTableInfo();
-        sourceTableInfo.setPostgresMd5Sql(postgresSql);
-        tableInfo.setSourceTableInfo(sourceTableInfo);
         List<TenantResult> tenantsResultList = new ArrayList<>();
         Map<String,Integer> tenantAndCountMap = retrieveTenantAndCountFromPostgres(tableInfo,jdbcTemplate);
         ExecutorService executorService = Executors.newFixedThreadPool(THREADS_NUMBERS);
+        CompletionService<TenantResult> completionService = new ExecutorCompletionService<>(executorService);
+        List<Future<TenantResult>> futureResultList = new ArrayList<>();
 
         for(Map.Entry<String,Integer> entry : tenantAndCountMap.entrySet()) {
-            executorService.submit(() -> {
-                int postgresRecordsCount = entry.getValue();
-                final String tenant = entry.getKey();
-                TenantThreadLocalHolder.setTenant(tenant);
-
+            final String tenant = entry.getKey();
+            futureResultList.add(completionService.submit(() -> {
+                log.info("Start verifying tenant (" + tenant +") in table: " + tableName);
+                TenantThreadLocalHolder.setTenant(entry.getKey());
+                final int postgresRecordsCount = entry.getValue();
                 JdbcTemplate hanaJdbcTemplate = new JdbcTemplate(targetDataSource);
                 int hanaRecordsCount = hanaJdbcTemplate.queryForObject("select count(*) from " + "\"" + tableInfo.getTargetTableName() + "\"", Integer.class);
                 CountResult countResult = new CountResult();
@@ -158,6 +147,7 @@ public class DataVerificationService {
                 boolean tenantDataConsistent = true;
                 if (postgresRecordsCount != hanaRecordsCount) {
                     tenantDataConsistent = false;
+                    log.warn("Found count MISMATCH after verifying tenant (" + tenant + ") in table: " + tableInfo.getSourceTableName());
                 } else if (hanaRecordsCount != 0 && !tableInfo.getPrimaryKey().isEmpty()) {
                     //MD5 content check
                     List<String> failedRecords = md5Check(tableInfo).entrySet().stream()
@@ -166,23 +156,41 @@ public class DataVerificationService {
                     if (!failedRecords.isEmpty()) {
                         tenantDataConsistent = false;
                         tenantResult.setInconsistentRecords(failedRecords);
+                        log.warn("Found " + failedRecords.size() + " records are inconsistent after verifying tenant (" + tenant + ") in table: " + tableInfo.getSourceTableName());
                     }
                 }
-
-                log.info("Data verification is completed for tenant (" + tenant + ") in table: " + tableInfo.getSourceTableName());
                 if (!tenantDataConsistent) {
-                    tableResult.getDataConsistent().set(false);
                     countResult.setSourceCount(postgresRecordsCount);
                     countResult.setTargetCount(hanaRecordsCount);
                     tenantResult.setTenant(tenant);
                     tenantResult.setCountResult(countResult);
-                    tenantsResultList.add(tenantResult);
-
                 }
-            });
+                log.info("End data verify for tenant (" + tenant + ") in table: " + tableInfo.getSourceTableName());
+                return tenantResult;
+            }));
         }
-        
-        awaitTerminationAfterShutdown(executorService);
+        while(!futureResultList.isEmpty()) {
+            Future<TenantResult> future = completionService.take();
+            futureResultList.remove(future);
+            try{
+                TenantResult tenantResult = future.get();
+                if (tenantResult.getTenant() != null) {
+                    tableResult.getDataConsistent().set(false);
+                    tenantsResultList.add(tenantResult);
+                }
+            } catch (ExecutionException e) {
+                log.error("[Verification] Exception occurs when verifying table: " + tableName + " Details: " + e.getMessage(),e );
+                executorService.shutdownNow();
+                throw new DataVerificationException("Data verification failed for table " + tableName + ". please check logs start with [Verification] Exception");
+            }
+        }
+
+        try {
+            awaitTerminationAfterShutdown(executorService);
+        } catch (InterruptedException e) {
+            log.error("[Verification] Exception occurs: " + e.getMessage(),e);
+            throw new DataVerificationException("InterruptException occurred, please check logs start with [Verification] Exception",e);
+        }
 
         if(!tableResult.getDataConsistent().get()){
             tableResult.setTenants(tenantsResultList);
@@ -192,10 +200,21 @@ public class DataVerificationService {
                 tableResult.setPrimaryKey(concatPKWithDelimiter(tablePrimaryKeyList,COMMA_DELIMITER));
             }
         }
-        log.info("Data verification is completed for table: " + tableName);
+        log.info("End data verify for table: " + tableName);
         return tableResult;
     }
-    
+
+    public void awaitTerminationAfterShutdown(ExecutorService threadPool) throws InterruptedException {
+        threadPool.shutdown();
+        try {
+            if (!threadPool.awaitTermination(500, TimeUnit.SECONDS)) {
+                threadPool.shutdownNow();
+            }
+        } catch (InterruptedException ex) {
+            threadPool.shutdownNow();
+            throw new InterruptedException(ex.getMessage());
+        }
+    }
 
     private Map<String,Integer> retrieveTenantAndCountFromPostgres(TableInfo tableInfo, JdbcTemplate jdbcTemplate) {
         final String tenantColumnName = tableInfo.getTenantColumnName();
@@ -211,13 +230,12 @@ public class DataVerificationService {
     }
 
     private Map<String, FailedRecordStatus> md5Check(TableInfo tableInfo) {
-        log.info("Hash consistent check is starting for tenant (" + tableInfo.getTenant() + ") in table: " + tableInfo.getSourceTableName());
         JdbcTemplate hanaJdbcTemplate = new JdbcTemplate(targetDataSource);
         JdbcTemplate postgresJdbcTemplate = new JdbcTemplate(sourceDataSource);
 
         final String hanaMd5Sql = dbSqlGenerator.generateHanaMd5Sql(tableInfo,hanaJdbcTemplate);
         Map<String,String> hanaMd5Result = getPKAndMD5ValueFromDB(hanaJdbcTemplate,hanaMd5Sql);
-        String postgresMd5Sql = tableInfo.getSourceTableInfo().getPostgresMd5Sql() + " where " + tableInfo.getTenantColumnName() + "=\'" + tableInfo.getTenant() + "\'";
+        String postgresMd5Sql = tableInfo.getPostgresMd5Sql() + " where " + tableInfo.getTenantColumnName() + "=\'" + tableInfo.getTenant() + "\'";
         Map<String,String> postgresMd5Result = getPKAndMD5ValueFromDB(postgresJdbcTemplate,postgresMd5Sql);
 
         Map<String, FailedRecordStatus> failedRecordMap = new LinkedHashMap<>();
@@ -234,7 +252,7 @@ public class DataVerificationService {
                 updateFailedRecordsMapByJavaEquals(failedRecordMap, tableInfo);
             }
             if(failedRecordMap.size() >= MISMATCH_RECORDS_MAX_NUM && postgresMd5Result.size() > MISMATCH_RECORDS_MAX_NUM ){
-                log.warn("Data verification only checked the first " + MISMATCH_RECORDS_MAX_NUM + " records for tenant (" + tableInfo.getTenant() + ") in table: " + tableInfo.getSourceTableName() +", as the inconsistent records reaches the predefined max number.");
+                log.warn("Content integrity check only inspected the first " + MISMATCH_RECORDS_MAX_NUM + " records for tenant (" + tableInfo.getTenant() + ") in table: " + tableInfo.getSourceTableName() +", as the inconsistent records reaches the predefined max number.");
                 break;
             }
         }
@@ -244,19 +262,18 @@ public class DataVerificationService {
         if(failedRecordMap.size() >= MISMATCH_RECORDS_MAX_NUM && postgresMd5Result.size() > MISMATCH_RECORDS_MAX_NUM ) {
             failedRecordMap.put(MORE_INDICATOR,FailedRecordStatus.INCONSISTENT);
         }
+
         return failedRecordMap;
     }
 
     private void updateFailedRecordsMapByJavaEquals(Map<String, FailedRecordStatus> failedRecordMap, TableInfo tableInfo) {
-        log.info("Java object equals check is starting for tenant (" + tableInfo.getTenant() + ") in table: " + tableInfo.getSourceTableName());
-
         Map<String, FailedRecordStatus> needDoubleCheckRecordsMap = filterMapOnVerifiedStatus(failedRecordMap, FailedRecordStatus.CHECKAGAIN);
 
         if(needDoubleCheckRecordsMap.isEmpty()){
             return;
         }
 
-        log.info("Java object equals check is starting for tenant (" + tableInfo.getTenant() + ") in table: " + tableInfo.getSourceTableName());
+        log.info("Java object equals check is starting for " + needDoubleCheckRecordsMap.size() + " records of tenant (" + tableInfo.getTenant() + ") in table: " + tableInfo.getSourceTableName());
 
         final JdbcTemplate hanaJdbcTemplate = new JdbcTemplate(targetDataSource);
         final JdbcTemplate postgresJdbcTemplate = new JdbcTemplate(sourceDataSource);
@@ -315,17 +332,21 @@ public class DataVerificationService {
         tableInfo.setSourceTableName(tableName);
         tableInfo.setTargetTableName(dbConfigReader.getTargetTableName(tableName));
         tableInfo.setTenantColumnName(tenantHelper.determineTenant(tableName));
-        List<String> tablePrimaryKeyList = dbSqlGenerator.getPrimaryKeysByTable(tableName, jdbcTemplate);
 
+        List<String> tablePrimaryKeyList = dbSqlGenerator.getPrimaryKeysByTable(tableName, jdbcTemplate);
         //Special handling: remove tenant_id column when it is part of composite primary key.
         tablePrimaryKeyList.remove(tableInfo.getTenantColumnName());
 
         if(tablePrimaryKeyList.isEmpty()) {
             tableInfo.setPrimaryKey("");
-            log.warn("MD5 check would be skipped as the table " + tableName + " doesn't contain primary key.");
+            log.warn("Data content integrity check would be skipped for table " + tableName + ", since it doesn't contain primary key.");
         } else{
             tableInfo.setPrimaryKey(concatPKWithDelimiter(tablePrimaryKeyList,PK_DELIMITER));
         }
+        //It needs after set primary key.
+        String postgresMd5Sql = dbSqlGenerator.generatePostgresMd5Sql(tableInfo, jdbcTemplate);
+        tableInfo.setPostgresMd5Sql(postgresMd5Sql);
+
         return tableInfo;
     }
 

@@ -16,7 +16,7 @@ public class TableInfo {
     private String targetTableName;
     private String tenantColumnName;
     private String primaryKey;
-    private SourceTableInfo sourceTableInfo;
+    private String postgresMd5Sql;
     public String getTenant(){
         return TenantThreadLocalHolder.getTenant();
     }
