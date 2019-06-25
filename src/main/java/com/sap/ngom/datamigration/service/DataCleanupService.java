@@ -4,6 +4,7 @@ import com.sap.ngom.datamigration.configuration.hana.TenantThreadLocalHolder;
 import com.sap.ngom.datamigration.exception.DataCleanupException;
 import com.sap.ngom.datamigration.util.DBConfigReader;
 import com.sap.ngom.datamigration.util.TenantHelper;
+import com.sap.ngom.util.hana.db.exceptions.HanaDataSourceDeterminationException;
 import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -12,7 +13,6 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import javax.sql.DataSource;
-import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -34,7 +34,7 @@ public class DataCleanupService {
 
     private static final Integer THREADS_NUMBERS = 10;
 
-    public void cleanData4OneTable(String tableName) throws Exception{
+    public void cleanData4OneTable(String tableName) {
         String targetTableName = dbConfigReader.getTargetTableName(tableName);
 
         List<String> tenantList = tenantHelper.getAllTenants(tableName);
@@ -43,7 +43,7 @@ public class DataCleanupService {
         ExecuteCleanup(tenantList, tableList);
     }
 
-    public void cleanData4AllTables() throws Exception{
+    public void cleanData4AllTables() {
         List<String> tableList = dbConfigReader.getSourceTableNames();
         List<String> tenantList = new ArrayList<String>();
         Set<String> tenantSet = new HashSet<>();
@@ -59,50 +59,50 @@ public class DataCleanupService {
         List allTenants = new ArrayList(tenantSet);
         ExecuteCleanup(allTenants, targetTableList);
 
-        log.info("[cleanup][all] ******* Cleanup done for all tables." );
+        log.info("[Cleanup][all] ******* Cleanup done for all tables." );
     }
 
-    private void ExecuteCleanup(List<String> tenantList, List<String> tableList) throws Exception {
+    private void ExecuteCleanup(List<String> tenantList, List<String> tableList)  {
         ExecutorService executorService = Executors.newFixedThreadPool(THREADS_NUMBERS);
         CountDownLatch tenantLatch = new CountDownLatch(tenantList.size());
         final AtomicBoolean hasError = new AtomicBoolean(false);
 
         for (String tenant : tenantList) {
             executorService.submit(() -> {
-                //change data source
-                TenantThreadLocalHolder.setTenant(tenant);
-                JdbcTemplate hanaJdbcTemplate = new JdbcTemplate(targetDataSource);
-                for (String tableName : tableList) {
-                    try {
+                try {
+                    //change data source
+                    TenantThreadLocalHolder.setTenant(tenant);
+                    JdbcTemplate hanaJdbcTemplate = new JdbcTemplate(targetDataSource);
+                    for (String tableName : tableList) {
                         log.info("Execute SQL for tenant " + tenant + ": TRUNCATE TABLE " + tableName + '.');
                         hanaJdbcTemplate.execute("TRUNCATE TABLE " + "\"" + tableName + "\"");
-                    } catch (DataAccessException e) {
-                        hasError.set(true);
-                        log.error("[cleanup] ++++ Exception occurs when execute SQL DELETE for tenant: " + tenant + " in table: " + tableName + ": " + e.getMessage());
                     }
+                } catch (Exception e) {
+                    hasError.set(true);
+                    log.error("[Cleanup] Exception for tenant: " + tenant  + ": " + e.getMessage(), e);
+                } finally {
+                    tenantLatch.countDown();
                 }
-                try {
-                    hanaJdbcTemplate.getDataSource().getConnection().close();
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                }
-                tenantLatch.countDown();
-                log.info("[cleanup] Cleanup done for tenant: " + tenant + ". " + tenantLatch.getCount() + "/" + tenantList.size());
+
+                log.info("[Cleanup] Cleanup done for tenant: " + tenant + ". " + tenantLatch.getCount() + "/" + tenantList.size());
             });
         }
 
         try {
             if(!tenantLatch.await(900, TimeUnit.SECONDS)) {
-                log.error("[cleanup] Timeout for cleanup [900 seconds]");
+                log.error("[Cleanup] Timeout for cleanup [900 seconds]");
             }
         } catch (InterruptedException e) {
-            log.error("[cleanup] tenantLatch.await interrupted exception occurs:", e);
+            log.error("[Cleanup] tenantLatch.await interrupted exception occurs:", e);
         }
         executorService.shutdownNow();
 
-        if(hasError.get() || tenantLatch.getCount() != 0) {
-            throw new DataCleanupException("[cleanup] Error occurs when delete data. ");
+        if(tenantLatch.getCount() != 0) {
+            throw new DataCleanupException("[Cleanup] Timeout after 15 mins");
         }
-        log.info("[cleanup] <<<<< Cleanup done. ");
+        if(hasError.get()) {
+            throw new DataCleanupException("[Cleanup] Error occurs when delete data. Search logs with keyword '[Cleanup] Exception'");
+        }
+        log.info("[Cleanup] <<<<< Cleanup done. ");
     }
 }
