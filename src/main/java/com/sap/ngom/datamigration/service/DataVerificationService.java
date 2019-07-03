@@ -129,45 +129,12 @@ public class DataVerificationService {
         JdbcTemplate jdbcTemplate = new JdbcTemplate(sourceDataSource);
         TableInfo tableInfo = initialTableInfo(tableName, jdbcTemplate);
         List<TenantResult> tenantsResultList = new ArrayList<>();
-        Map<String,Integer> tenantAndCountMap = retrieveTenantAndCountFromPostgres(tableInfo,jdbcTemplate);
+        List<String> tenants = tenantHelper.getAllTenants(tableName);
         ExecutorService executorService = Executors.newFixedThreadPool(THREADS_NUMBERS);
         CompletionService<TenantResult> completionService = new ExecutorCompletionService<>(executorService);
         List<Future<TenantResult>> futureResultList = new ArrayList<>();
-
-        for(Map.Entry<String,Integer> entry : tenantAndCountMap.entrySet()) {
-            final String tenant = entry.getKey();
-            futureResultList.add(completionService.submit(() -> {
-                log.info("Start verifying tenant (" + tenant +") in table: " + tableName);
-                TenantThreadLocalHolder.setTenant(entry.getKey());
-                final int postgresRecordsCount = entry.getValue();
-                JdbcTemplate hanaJdbcTemplate = new JdbcTemplate(targetDataSource);
-                int hanaRecordsCount = hanaJdbcTemplate.queryForObject("select count(*) from " + "\"" + tableInfo.getTargetTableName() + "\"", Integer.class);
-                CountResult countResult = new CountResult();
-                TenantResult tenantResult = new TenantResult();
-                boolean tenantDataConsistent = true;
-                if (postgresRecordsCount != hanaRecordsCount) {
-                    tenantDataConsistent = false;
-                    log.warn("Found count MISMATCH after verifying tenant (" + tenant + ") in table: " + tableInfo.getSourceTableName());
-                } else if (hanaRecordsCount != 0 && !tableInfo.getPrimaryKey().isEmpty()) {
-                    //MD5 content check
-                    List<String> failedRecords = md5Check(tableInfo).entrySet().stream()
-                            .map(Map.Entry::getKey).collect(Collectors.toList());
-
-                    if (!failedRecords.isEmpty()) {
-                        tenantDataConsistent = false;
-                        tenantResult.setInconsistentRecords(failedRecords);
-                        log.warn("Found " + failedRecords.size() + " records are inconsistent after verifying tenant (" + tenant + ") in table: " + tableInfo.getSourceTableName());
-                    }
-                }
-                if (!tenantDataConsistent) {
-                    countResult.setSourceCount(postgresRecordsCount);
-                    countResult.setTargetCount(hanaRecordsCount);
-                    tenantResult.setTenant(tenant);
-                    tenantResult.setCountResult(countResult);
-                }
-                log.info("End data verify for tenant (" + tenant + ") in table: " + tableInfo.getSourceTableName());
-                return tenantResult;
-            }));
+        for(String tenant: tenants) {
+            futureResultList.add(completionService.submit(() -> verifyOneTenant(tableInfo,tenant)));
         }
         while(!futureResultList.isEmpty()) {
             Future<TenantResult> future = completionService.take();
@@ -204,6 +171,43 @@ public class DataVerificationService {
         return tableResult;
     }
 
+    private TenantResult verifyOneTenant(TableInfo tableInfo, String tenant) {
+        log.info("Start verifying tenant (" + tenant +") in table: " + tableInfo.getSourceTableName());
+        TenantThreadLocalHolder.setTenant(tenant);
+        JdbcTemplate jdbcTemplate = new JdbcTemplate(sourceDataSource);
+        final int postgresRecordsCount = jdbcTemplate.queryForObject("select count(*) from " + tableInfo.getSourceTableName() + " where " + tableInfo.getTenantColumnName() + " = \'" + tableInfo.getTenant() + "\'", Integer.class);
+
+        JdbcTemplate hanaJdbcTemplate = new JdbcTemplate(targetDataSource);
+        final int hanaRecordsCount = hanaJdbcTemplate.queryForObject("select count(*) from " + "\"" + tableInfo.getTargetTableName() + "\"", Integer.class);
+        CountResult countResult = new CountResult();
+        TenantResult tenantResult = new TenantResult();
+        boolean tenantDataConsistent = true;
+        if (postgresRecordsCount != hanaRecordsCount) {
+            tenantDataConsistent = false;
+            log.warn("Found count MISMATCH after verifying tenant (" + tenant + ") in table: " + tableInfo.getSourceTableName());
+        } else if (hanaRecordsCount != 0 && !tableInfo.getPrimaryKey().isEmpty()) {
+            //MD5 content check
+            List<String> failedRecords = md5Check(tableInfo).entrySet().stream()
+                                        .map(Map.Entry::getKey).collect(Collectors.toList());
+
+            if (!failedRecords.isEmpty()) {
+                tenantDataConsistent = false;
+                tenantResult.setInconsistentRecords(failedRecords);
+                log.warn("Found " + failedRecords.size() + " records are inconsistent after verifying tenant (" + tenant + ") in table: " + tableInfo.getSourceTableName());
+            }
+        }
+        if (!tenantDataConsistent) {
+            countResult.setSourceCount(postgresRecordsCount);
+            countResult.setTargetCount(hanaRecordsCount);
+            tenantResult.setTenant(tenant);
+            tenantResult.setCountResult(countResult);
+        }
+
+        log.info("End data verify for tenant (" + tenant + ") in table: " + tableInfo.getSourceTableName());
+        return tenantResult;
+    }
+
+
     public void awaitTerminationAfterShutdown(ExecutorService threadPool) throws InterruptedException {
         threadPool.shutdown();
         try {
@@ -216,19 +220,6 @@ public class DataVerificationService {
         }
     }
 
-    private Map<String,Integer> retrieveTenantAndCountFromPostgres(TableInfo tableInfo, JdbcTemplate jdbcTemplate) {
-        final String tenantColumnName = tableInfo.getTenantColumnName();
-        String sqlForTenantAndCount = "select count(" + tenantColumnName + ") as tenant_count, " + tenantColumnName + " from " + tableInfo.getSourceTableName() + " where " + tenantColumnName + " is not null group by " + tenantColumnName;
-        return jdbcTemplate.query(sqlForTenantAndCount, resultSet -> {
-            Map<String, Integer> map = new HashMap<>();
-            while (resultSet.next()) {
-                map.put(resultSet.getString(tableInfo.getTenantColumnName()), resultSet.getInt("tenant_count"));
-
-            }
-            return map;
-        });
-    }
-
     private Map<String, FailedRecordStatus> md5Check(TableInfo tableInfo) {
         JdbcTemplate hanaJdbcTemplate = new JdbcTemplate(targetDataSource);
         JdbcTemplate postgresJdbcTemplate = new JdbcTemplate(sourceDataSource);
@@ -237,7 +228,6 @@ public class DataVerificationService {
         Map<String,String> hanaMd5Result = getPKAndMD5ValueFromDB(hanaJdbcTemplate,hanaMd5Sql);
         String postgresMd5Sql = tableInfo.getPostgresMd5Sql() + " where " + tableInfo.getTenantColumnName() + "=\'" + tableInfo.getTenant() + "\'";
         Map<String,String> postgresMd5Result = getPKAndMD5ValueFromDB(postgresJdbcTemplate,postgresMd5Sql);
-
         Map<String, FailedRecordStatus> failedRecordMap = new LinkedHashMap<>();
         for(Map.Entry<String, String> entry : postgresMd5Result.entrySet()){
             final String recordPkValue = entry.getKey();
@@ -262,7 +252,6 @@ public class DataVerificationService {
         if(failedRecordMap.size() >= MISMATCH_RECORDS_MAX_NUM && postgresMd5Result.size() > MISMATCH_RECORDS_MAX_NUM ) {
             failedRecordMap.put(MORE_INDICATOR,FailedRecordStatus.INCONSISTENT);
         }
-
         return failedRecordMap;
     }
 
