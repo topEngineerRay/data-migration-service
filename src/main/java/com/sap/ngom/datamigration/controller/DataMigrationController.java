@@ -119,21 +119,13 @@ public class DataMigrationController {
     
     @PostMapping("/data/verification")
     public ResponseEntity<ResponseMessage> dataVerificationForAllTable()  {
-        try {
-            return ResponseEntity.status(200).body(dataVerificationService.dataVerificationForAllTable());
-        } catch (InterruptedException e) {
-            return ResponseEntity.status(500).build();
-        }
+        return ResponseEntity.status(200).body(dataVerificationService.dataVerificationForAllTable());
     }
 
 
     @PostMapping("/data/verification/{tableName}")
     public ResponseEntity<ResponseMessage> dataVerificationForOneTable(@PathVariable("tableName")final String tableName) {
-        try {
-            return ResponseEntity.status(200).body(dataVerificationService.dataVerificationForOneTable(tableName));
-        } catch (InterruptedException e) {
-            return ResponseEntity.status(500).build();
-        }
+        return ResponseEntity.status(200).body(dataVerificationService.dataVerificationForOneTable(tableName));
     }
 
     @PostMapping("/initialization")
