@@ -5,6 +5,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.*;
 
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 @Getter
 @Setter
@@ -15,7 +16,7 @@ import java.util.List;
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class TableResult {
     private String table;
-    private Boolean dataConsistent;
+    private AtomicBoolean dataConsistent;
     private String primaryKey;
     private List<TenantResult> tenants;
 }

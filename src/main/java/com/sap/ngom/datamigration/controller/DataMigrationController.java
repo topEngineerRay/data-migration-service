@@ -118,13 +118,13 @@ public class DataMigrationController {
     }
     
     @PostMapping("/data/verification")
-    public ResponseEntity<ResponseMessage> dataVerificationForOneTable(){
+    public ResponseEntity<ResponseMessage> dataVerificationForAllTable()  {
         return ResponseEntity.status(200).body(dataVerificationService.dataVerificationForAllTable());
     }
 
 
     @PostMapping("/data/verification/{tableName}")
-    public ResponseEntity<ResponseMessage> dataVerificationForAllTable(@PathVariable("tableName")final String tableName){
+    public ResponseEntity<ResponseMessage> dataVerificationForOneTable(@PathVariable("tableName")final String tableName) {
         return ResponseEntity.status(200).body(dataVerificationService.dataVerificationForOneTable(tableName));
     }
 
