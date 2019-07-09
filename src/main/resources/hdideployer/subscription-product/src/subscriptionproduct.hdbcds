@@ -12,6 +12,7 @@ context SubscriptionProduct{
 			SOLD_ELECTRONIC         : hana.TINYINT not null;
 			CREATED_AT              : UTCTimestamp not null;
 			CHANGED_AT              : UTCTimestamp not null;
+			PROD_INTERNAL_ID        : String(255) not null;
 	} technical configuration {
         unique index INDEX_CODE_ASC on (CODE) asc;
         index INDEX_NAME_ASC on (NAME) asc;
@@ -24,6 +25,7 @@ context SubscriptionProduct{
 			PROD_ID                 : String(200) not null;
 			TYPE_CODE               : String(50) not null;
 			CUSTOM_REF_ID           : String(255) not null;
+            OWNER_ID                : String(255);
 	} technical configuration {
         index INDEX_TYPE_CODE_ASC on (TYPE_CODE) asc;
         index INDEX_CUSTOM_REF_ID_ASC on (CUSTOM_REF_ID) asc;
@@ -37,6 +39,7 @@ context SubscriptionProduct{
 			RATE_PLAN_ID            : String(200);
 			FROM_TEMPLATE           : hana.TINYINT;
 			RATE_PLAN_DESCRIPTION   : String(255);
+            OWNER_ID                : String(255);
 	} technical configuration {
         index INDEX_MARKET_ID_ASC on (MARKET_ID) asc;
     };
@@ -50,6 +53,11 @@ context SubscriptionProduct{
 			TERM_OF_NOTICE          : Integer;
 			ALLOW_MID_EXPIRATION    : hana.TINYINT;
 			ALLOW_TECH_RESOURCE     : hana.TINYINT default 1 not null;
+			PROD_INTERNAL_ID        : String(255);
+			WITHDRAWAL_PERIOD       : Integer;
+			RATE_PLAN_MANAGED_EXTERNALLY : hana.TINYINT;
+			RATE_PLAN_TEMPLATE_ID   : String(200);
+			FIXED_LENGTH            : Integer;
 	};
 
 	entity subscription_part_tech_resource{
@@ -57,11 +65,13 @@ context SubscriptionProduct{
 			PROD_ID                 : String(200) not null;
 			TYPE                    : String(50) not null;
 			ID_TYPE                 : String(50);
+			OWNER_ID                : String(255);
 	};
 
 	entity subscription_part_sub_param{
 		key ID                      : String(200);
 			PROD_ID                 : String(200) not null;
 			SUB_PARAM_CODE          : String(50) not null;
+			OWNER_ID                : String(255);
 	};
 }
