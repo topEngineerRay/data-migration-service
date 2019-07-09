@@ -1,0 +1,67 @@
+namespace com.sap.ngom.db;
+
+context SubscriptionProduct{
+
+	entity product{
+		key ID                      : String(200);
+			CODE                    : String(200) not null;
+			NAME                    : String(255) not null;
+			VERSION                 : Integer not null;
+			PUBLISHED               : hana.TINYINT not null;
+			DESCRIPTION             : String(5000);
+			SOLD_ELECTRONIC         : hana.TINYINT not null;
+			CREATED_AT              : UTCTimestamp not null;
+			CHANGED_AT              : UTCTimestamp not null;
+	} technical configuration {
+        unique index INDEX_CODE_ASC on (CODE) asc;
+        index INDEX_NAME_ASC on (NAME) asc;
+        index INDEX_CREATED_AT_ASC on (CREATED_AT) asc;
+        index INDEX_CHANGED_AT_ASC on (CHANGED_AT) asc;
+	};
+
+	entity custom_reference{
+		key ID                      : String(200);
+			PROD_ID                 : String(200) not null;
+			TYPE_CODE               : String(50) not null;
+			CUSTOM_REF_ID           : String(255) not null;
+	} technical configuration {
+        index INDEX_TYPE_CODE_ASC on (TYPE_CODE) asc;
+        index INDEX_CUSTOM_REF_ID_ASC on (CUSTOM_REF_ID) asc;
+    };
+
+	entity market{
+		key ID                      : String(200);
+			PROD_ID                 : String(200) not null;
+			MARKET_ID               : String(50) not null;
+			ACTIVE                  : hana.TINYINT not null;
+			RATE_PLAN_ID            : String(200);
+			FROM_TEMPLATE           : hana.TINYINT;
+			RATE_PLAN_DESCRIPTION   : String(255);
+	} technical configuration {
+        index INDEX_MARKET_ID_ASC on (MARKET_ID) asc;
+    };
+
+	entity subscription_part{
+		key PROD_ID                 : String(200);
+			EXTERNAL_REF            : String(255);
+			SUBSCRIPTION_TYPE       : String(10);
+			CONTRACT_TERM           : Integer;
+			RENEWAL_TERM            : Integer;
+			TERM_OF_NOTICE          : Integer;
+			ALLOW_MID_EXPIRATION    : hana.TINYINT;
+			ALLOW_TECH_RESOURCE     : hana.TINYINT default 1 not null;
+	};
+
+	entity subscription_part_tech_resource{
+		key ID                      : String(200);
+			PROD_ID                 : String(200) not null;
+			TYPE                    : String(50) not null;
+			ID_TYPE                 : String(50);
+	};
+
+	entity subscription_part_sub_param{
+		key ID                      : String(200);
+			PROD_ID                 : String(200) not null;
+			SUB_PARAM_CODE          : String(50) not null;
+	};
+}
