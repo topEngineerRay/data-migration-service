@@ -13,10 +13,9 @@ import lombok.extern.log4j.Log4j2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
+import java.util.regex.Pattern;
 
 import javax.sql.DataSource;
-import java.io.UnsupportedEncodingException;
-import java.net.URLEncoder;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -72,36 +71,30 @@ public class InitializerService {
         InstanceManagerClient finalImClient = imClient;
 
         for (String tenantId : tenantList) {
-            String oriTenantId = null;
-            try {
-                oriTenantId = URLEncoder.encode(tenantId, "UTF-8");
-            } catch (UnsupportedEncodingException e) {
-                throw new InitializerException(e.getMessage());
-            }
-            String finalTenantId = oriTenantId;
+
             executorService.submit(() -> {
                 try {
-                    DataSource dataSource = multiTenantDataSourceHolder.getDataSource(finalTenantId);
-
+                    validateTenantId(tenantId);
+                    DataSource dataSource = multiTenantDataSourceHolder.getDataSource(tenantId);
                     if (dataSource == null) {
-                        ManagedServiceInstance managedServiceInstance = finalImClient.getManagedInstance(finalTenantId);
+                        ManagedServiceInstance managedServiceInstance = finalImClient.getManagedInstance(tenantId);
 
                         if (managedServiceInstance == null) { //new tenant to be created
                             final BlockingQueue<ManagedServiceInstance> asyncResult = new SynchronousQueue<>();
-                            tenantAsyncResults.put(finalTenantId, asyncResult);
+                            tenantAsyncResults.put(tenantId, asyncResult);
 
                             Map<String, Object> provisioningParameters = new HashMap<>();
                             InstanceCreationOptions instanceCreationOptions = new InstanceCreationOptions();
                             instanceCreationOptions = instanceCreationOptions.withProvisioningParameters(provisioningParameters);
 
-                            finalImClient.createManagedInstance(finalTenantId, this.creationManagedInstanceCallback, instanceCreationOptions);
+                            finalImClient.createManagedInstance(tenantId, this.creationManagedInstanceCallback, instanceCreationOptions);
                             Object instanceManager = asyncResult.take();
                             managedServiceInstance = (ManagedServiceInstance) instanceManager;
                         }
 
                         if (managedServiceInstance == null) {
                             hasError.set(true);
-                            log.error("[Initialization] Exception when create managed instance for tenant: " + finalTenantId);
+                            log.error("[Initialization] Exception when create managed instance for tenant: " + tenantId);
                             tenantLatch.countDown();
                             Thread.currentThread().interrupt();
                         }
@@ -113,8 +106,8 @@ public class InitializerService {
                             // call HDI deployer
                             hdiDeployerClient.executeHDIDeployment(managedServiceInstance);
                             dataSource = hdiDeployerClient.createDataSource(managedServiceInstance);
-                            if (managedServiceInstance.getId().equals(finalTenantId)) {
-                                multiTenantDataSourceHolder.storeDataSource(finalTenantId, dataSource);
+                            if (managedServiceInstance.getId().equals(tenantId)) {
+                                multiTenantDataSourceHolder.storeDataSource(tenantId, dataSource);
                             }
                         }
                     }
@@ -125,11 +118,15 @@ public class InitializerService {
                 } catch (HDIDeploymentException e) {
                     hasError.set(true);
                     log.error("[Initialization] Exception when call HDI deployer: " + e.getMessage(), e);
-                } finally {
+                } catch (InitializerException e) {
+                    hasError.set(true);
+                    log.error("[Initialization] Exception: " + e.getMessage(),e);
+                }
+                finally {
                     tenantLatch.countDown();
                 }
 
-                log.info("[Initialization] Initialization done for tenant: " + finalTenantId + ". " + tenantLatch.getCount() + "/" + tenantList.size());
+                log.info("[Initialization] Initialization done for tenant: " + tenantId + ". " + tenantLatch.getCount() + "/" + tenantList.size());
             });
         }
 
@@ -165,6 +162,15 @@ public class InitializerService {
         ExecuteInitilization(allTenants);
 
         log.info("[Initialization] ******* Initialize done for all tables." );
+    }
+
+    private void validateTenantId(String tenantId) {
+        String patternStr = "[A-Za-z0-9-._~:@!$&()*+,=]+";
+        boolean isValid = Pattern.compile(patternStr).matcher(tenantId).matches();
+
+        if(!isValid) {
+            throw new InitializerException("Failed to create managed instance due to the given tenant[" + tenantId + "] is invalid, please follow pattern: " + patternStr);
+        }
     }
 
     private InstanceManagerClient.CreationCallback creationManagedInstanceCallback = new InstanceManagerClient.CreationCallback() {
