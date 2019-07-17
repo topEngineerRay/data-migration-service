@@ -6,7 +6,7 @@ applications:
   path: target/data-migration-service-1.0-SNAPSHOT.jar
   services:
     - postgresql-business-partner
-    - managed-hana-business-partner-backup
+    - managed-hana-business-partner
   env:
     VAULT_AUTH_TOKEN: "${vault.generateToken()}"
     SPRING_PROFILES_ACTIVE: "${context}"
