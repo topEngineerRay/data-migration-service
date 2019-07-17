@@ -223,10 +223,5 @@ context BusinessPartner {
 
     };
 
-    entity TEST {
-        key pkid : String(255);
-            tenant_ID: String(255);
-            BPid: String(255);
-    };
 
 }
