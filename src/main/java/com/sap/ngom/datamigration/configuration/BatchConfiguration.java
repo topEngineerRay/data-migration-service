@@ -28,7 +28,7 @@ public class BatchConfiguration {
 
     @Autowired
     @Qualifier("targetDataSource")
-    DataSource detinationDataSource;
+    private DataSource detinationDataSource;
 
     @Autowired
     private JobRepository jobRepository;

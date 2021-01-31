@@ -25,14 +25,9 @@ public class DataMigrationController {
     @Autowired
     DataCleanupService dataCleanupService;
 
-    @Autowired
-    ManagedInstanceService managedInstanceService;
 
     @Autowired
     DataVerificationService dataVerificationService;
-
-    @Autowired
-    InitializerService initializerService;
 
 
     @GetMapping("/jobs/{tableName}")
@@ -107,7 +102,7 @@ public class DataMigrationController {
         return ResponseEntity.ok().body(responseMessage);
     }
 
-    @PostMapping("/managed-instances/cleanup")
+  /*  @PostMapping("/managed-instances/cleanup")
     public ResponseEntity<Void> managedInstancesClear() {
         try {
             managedInstanceService.deleteAll();
@@ -115,7 +110,7 @@ public class DataMigrationController {
             e.printStackTrace();
         }
         return ResponseEntity.ok().build();
-    }
+    }*/
     
     @PostMapping("/data/verification")
     public ResponseEntity<ResponseMessage> dataVerificationForAllTable()  {
@@ -126,28 +121,6 @@ public class DataMigrationController {
     @PostMapping("/data/verification/{tableName}")
     public ResponseEntity<ResponseMessage> dataVerificationForOneTable(@PathVariable("tableName")final String tableName) {
         return ResponseEntity.status(200).body(dataVerificationService.dataVerificationForOneTable(tableName));
-    }
-
-    @PostMapping("/initialization")
-    public ResponseEntity<ResponseMessage> tableInitializeAll() {
-        ResponseMessage responseMessage = new ResponseMessage();
-        responseMessage.setStatus(Status.SUCCESS);
-        responseMessage.setMessage("Initialize successfully done for all the tables.");
-
-        initializerService.initialize4AllTables();
-
-        return ResponseEntity.ok().body(responseMessage);
-    }
-
-    @PostMapping("/initialization/{tableName}")
-    public ResponseEntity<ResponseMessage> tableInitializeOne(@PathVariable("tableName")final String tableName) {
-        ResponseMessage responseMessage = new ResponseMessage();
-        responseMessage.setStatus(Status.SUCCESS);
-        responseMessage.setMessage("Initialize successfully done for the table: " + tableName + ".");
-
-        initializerService.initialize4OneTable(tableName);
-
-        return ResponseEntity.ok().body(responseMessage);
     }
 
 }

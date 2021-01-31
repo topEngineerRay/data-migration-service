@@ -10,9 +10,9 @@ import javax.sql.DataSource;
 @Configuration
 public class SpringBatchMetadataConfiguration {
 
-    @Bean("batchConfigDataSource")
+   /* @Bean("batchConfigDataSource")
     @Primary
     public DataSource batchConfigH2DataSource() {
         return DataSourceBuilder.create().url("jdbc:h2:mem:testdb").driverClassName("org.h2.Driver").username("sa").password("").build();
-    }
+    }*/
 }
